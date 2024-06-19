@@ -270,72 +270,63 @@ def plot_learning_curve(name, episode_history, score_history):
 	df.to_csv(f'{name}.csv', index=False)
 
 
-def train_single_episode_worker(worker_id, agents: List[Agent], env, queue):
-	dones = [False]
-	state, _, _ = env.reset()
-	score = 0
-	steps = 0
-	while not all(dones) and steps < 50:
-		actions, probs, vals, dones = [], [], [], []
-		for i, agent in enumerate(agents):
-			action, prob, val = agent.choose_action(state[i])
-			actions.append(action)
-			probs.append(prob)
-			vals.append(val)
-		state_, reward, dones, _, _, _ = env.step(actions)
-		score += sum(reward)
-		for i, agent in enumerate(agents):
-			agent.remember(worker_id, state[i], actions[i], probs[i], vals[i], reward[i], dones[i])
-		state = state_
-		steps += 1
-
-	# Store the last transition with done set to True
-	for i, agent in enumerate(agents):
-		agent.remember(worker_id, state[i], actions[i], probs[i], vals[i], reward[i], [True]*len(agents))
-
-	queue.put((steps, score))
-
-
-def train(agents: List[Agent], env, n_workers=1, n_games=10000, best_score=-100, learning_step=128):
-	queue = mp.Queue()
-	episode_history = []
+def train_single_episode_worker(worker_id: int, agents: List[Agent], env, n_workers: int, n_games=10000):
 	score_history = []
 
 	learn_iters = 0
 	avg_score = 0
-	n_steps = 0
+	best_score = -100000
 
 	print_interval = 100
-	envs = [copy.deepcopy(env) for _ in range(n_workers)]
+	for episode in range(n_games):
+		start = time.time()
+		dones = [False]
+		state, _, _ = env.reset()
+		score = 0
+		steps = 0
+		while not all(dones) and steps < 50:
+			actions, probs, vals, dones = [], [], [], []
+			for i, agent in enumerate(agents):
+				action, prob, val = agent.choose_action(state[i])
+				actions.append(action)
+				probs.append(prob)
+				vals.append(val)
+			state_, reward, dones, _, _, _ = env.step(actions)
+			score += sum(reward)
+			for i, agent in enumerate(agents):
+				agent.remember(worker_id, state[i], actions[i], probs[i], vals[i], reward[i], dones[i])
+			state = state_
+			steps += 1
+		for i, agent in enumerate(agents):
+			agent.remember(worker_id, state[i], actions[i], probs[i], vals[i], reward[i], True)
+		score_history.append(score)
+		end = time.time()
+		# if worker_id == 0:
+		# 	print(f'Worker [{worker_id}] time per episode: {end-start}')
 
-	for episode in range(n_games // n_workers):
-		processes = []
-		for i in range(n_workers):
-			p = mp.Process(target=train_single_episode_worker, args=(i, agents, envs[i], queue))
-			p.start()
-			processes.append(p)
-		for p in processes:
-			p.join()
+		if worker_id == n_workers - 1:
+			if episode % 2 == 0:
+				for agent in agents:
+					agent.learn()
+				learn_iters += 1
 
-		for _ in range(n_workers):
-			steps, score = queue.get()
-			episode_history.append(steps)
-			score_history.append(score)
-			n_steps += steps
+			avg_score = np.mean(score_history[-100:])
+			if avg_score > best_score:
+				best_score = avg_score
+			if episode % (print_interval // n_workers) == 0:
+				print(f'episode: {episode} | avg score: {avg_score:.1f} | learning_steps: {learn_iters}')
+	plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
 
-		if episode % 4 == 0:
-			for agent in agents:
-				agent.learn()
-			learn_iters += 1
 
-		avg_score = np.mean(score_history[-100:])
-		if avg_score > best_score:
-			best_score = avg_score
-			agent.save_models()
-		if episode % (print_interval // n_workers) == 0:
-			print(f'episode: {episode} | avg score: {avg_score:.1f} | learning_steps: {learn_iters}')
-	return score_history
 
+def train(agents: List[Agent], envs, n_workers=1, n_games=10000, best_score=-100, learning_step=128):
+	processes = []
+	for i in range(n_workers):
+		p = mp.Process(target=train_single_episode_worker, args=(i, agents, envs[i], n_workers))
+		p.start()
+		processes.append(p)
+	for p in processes:
+		p.join()
 
 def evaluate(agents: List[Agent], env): 
 	observation, _, _ = env.reset()
@@ -354,18 +345,20 @@ def evaluate(agents: List[Agent], env):
 if __name__ == '__main__':
 	# env = gym.make('CartPole-v0')
 	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
-	n_agents = 2
+	n_agents = 1
 	n_workers = 8
+	n_games = 10000
 	eval = False
 	# env = CatMouse(evaluate=eval)
-	env = Lumberjacks(n_agents, evaluate=eval)
 	# env = SimpleSpreadV3(evaluate=eval)
+
+	envs = [Lumberjacks(n_agents, evaluate=eval) for _ in range(n_workers)]
 	agents = []
 	for i in range(n_agents):
 		agents.append(Agent(
 			env_name='lumberjacks',
-			n_actions=env.action_dim,
-			input_dims=env.state_dim,
+			n_actions=envs[0].action_dim,
+			input_dims=envs[0].state_dim,
 			alpha= 0.0003,
 			gamma=0.99,
 			n_epochs=4,
@@ -376,9 +369,8 @@ if __name__ == '__main__':
 		for i, agent in enumerate(agents):
 			agent.load_models(id=i)
 		for i in range(10):
-			evaluate(agents, env)
+			evaluate(agents, envs[0])
 	else:
-		score_history = train(agents, env, n_workers=n_workers, n_games=20000)
-		plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
+		train(agents, envs, n_workers=n_workers, n_games=n_games)
 		for i, agent in enumerate(agents):
 			agent.save_models(id=i)
