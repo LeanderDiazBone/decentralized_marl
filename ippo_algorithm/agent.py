@@ -1,3 +1,4 @@
+import itertools
 import os
 import numpy as np
 import torch as T
@@ -5,6 +6,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 import matplotlib.pyplot as plt
+
+
 
 device = T.device('cpu')
 # if T.cuda.is_available():
@@ -16,38 +19,49 @@ device = T.device('cpu')
 # else:
 # 	print('using cpu')
 
+
 class PpoMemory:
-	def __init__(self, batch_size: int):
-		self.states = []
-		self.probs = []
-		self.vals = []
-		self.actions = []
-		self.rewards = []
-		self.dones = []
+	def __init__(self, n_workers: int=1, batch_size: int=64):
+		self.states = [[]] * n_workers
+		self.actions = [[]] * n_workers
+		self.probs = [[]] * n_workers
+		self.vals = [[]] * n_workers
+		self.rewards = [[]] * n_workers
+		self.dones = [[]] * n_workers
+		self.n_workers = n_workers
 		self.batch_size = batch_size
 
-	def generate_batches(self):
-		n_states = len(self.states)
+	def generate_batches(self): 
+		states = list(itertools.chain(*self.states))
+		actions = list(itertools.chain(*self.actions))
+		probs = list(itertools.chain(*self.probs))
+		vals = list(itertools.chain(*self.vals))
+		rewards = list(itertools.chain(*self.rewards))
+		dones = list(itertools.chain(*self.dones))
+
+		n_states = len(states)
 		batch_start = np.arange(0, n_states, self.batch_size)
 		indices = np.arange(n_states, dtype=np.int64)
 		np.random.shuffle(indices)
 		batches = [indices[i:i+self.batch_size] for i in batch_start]
-		return np.array(self.states), np.array(self.actions), np.array(self.probs), np.array(self.vals), np.array(self.rewards), np.array(self.dones), batches
+		return np.array(states), np.array(actions), np.array(probs), np.array(vals), np.array(rewards), np.array(dones), batches
 
-	def store_memory(self, state, action, probs, vals, reward, done):
-		self.states.append(state)
-		self.actions.append(action)
-		self.probs.append(probs)
-		self.vals.append(vals)
-		self.rewards.append(reward)
-		self.dones.append(done)
+	def store_memory(self, worker_id, state, action, probs, vals, reward, done):
+		self.states[worker_id].append(state)
+		self.actions[worker_id].append(action)
+		self.probs[worker_id].append(probs)
+		self.vals[worker_id].append(vals)
+		self.rewards[worker_id].append(reward)
+		self.dones[worker_id].append(done)
 
 	def clear_memory(self):
-		self.states = []
-		self.probs = []
-		self.actions = []
-		self.rewards = []
-		self.dones = []
+		self.states = [[]] * self.n_workers
+		self.probs = [[]] * self.n_workers
+		self.vals = [[]] * self.n_workers
+		self.actions = [[]] * self.n_workers
+		self.rewards = [[]] * self.n_workers
+		self.dones = [[]] * self.n_workers
+
 
 class ActorNetwork(nn.Module):
 	def __init__(self, n_actions, input_dims, alpha, fc1_dims=128, fc2_dims=128, chkpt_dir='tmp/ppo'):
@@ -83,6 +97,7 @@ class ActorNetwork(nn.Module):
 			path = self.checkpoint_file
 		self.load_state_dict(T.load(path))
 
+
 class CriticNetwork(nn.Module):
 	def __init__(self, input_dims, alpha, fc1_dims=128, fc2_dims=128, chkpt_dir='tmp/ppo'):
 		super(CriticNetwork, self).__init__()
@@ -115,10 +130,11 @@ class CriticNetwork(nn.Module):
 			path = self.checkpoint_file
 		self.load_state_dict(T.load(path))
 
+
 class Agent:
 	# N = horizon, steps we take before we perform an update
 	def __init__(self, env_name: str, n_actions: int, input_dims: int, gamma=0.99, alpha=0.0001, gae_lambda=0.95,
-			policy_clip=0.2, batch_size=64, n_epochs=10):
+			policy_clip=0.2, n_workers=1, batch_size=64, n_epochs=10):
 		self.env_name = env_name
 		self.plotter_x = []
 		self.plotter_y = []
@@ -129,10 +145,10 @@ class Agent:
 
 		self.actor = ActorNetwork(n_actions, input_dims, alpha)
 		self.critic = CriticNetwork(input_dims, alpha)
-		self.memory = PpoMemory(batch_size)
+		self.memory = PpoMemory(n_workers, batch_size)
 
-	def remember(self, state, action, probs, vals, reward, done):
-		self.memory.store_memory(state, action, probs, vals, reward, done)
+	def remember(self, worker_id, state, action, probs, vals, reward, done):
+		self.memory.store_memory(worker_id, state, action, probs, vals, reward, done)
 
 	def save_models(self, id: str=None):
 		self.actor.save_checkpoint(f'./checkpoints/ppo_actor_{id}_{self.env_name}.pth')

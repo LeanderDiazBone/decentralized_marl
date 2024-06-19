@@ -1,4 +1,6 @@
+import copy
 import time
+import multiprocessing as mp
 from typing import List
 import gym
 import numpy as np
@@ -268,7 +270,34 @@ def plot_learning_curve(name, episode_history, score_history):
 	df.to_csv(f'{name}.csv', index=False)
 
 
-def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_step=128):
+def train_single_episode_worker(worker_id, agents: List[Agent], env, queue):
+	dones = [False]
+	state, _, _ = env.reset()
+	score = 0
+	steps = 0
+	while not all(dones) and steps < 50:
+		actions, probs, vals, dones = [], [], [], []
+		for i, agent in enumerate(agents):
+			action, prob, val = agent.choose_action(state[i])
+			actions.append(action)
+			probs.append(prob)
+			vals.append(val)
+		state_, reward, dones, _, _, _ = env.step(actions)
+		score += sum(reward)
+		for i, agent in enumerate(agents):
+			agent.remember(worker_id, state[i], actions[i], probs[i], vals[i], reward[i], dones[i])
+		state = state_
+		steps += 1
+
+	# Store the last transition with done set to True
+	for i, agent in enumerate(agents):
+		agent.remember(worker_id, state[i], actions[i], probs[i], vals[i], reward[i], [True]*len(agents))
+
+	queue.put((steps, score))
+
+
+def train(agents: List[Agent], env, n_workers=1, n_games=10000, best_score=-100, learning_step=128):
+	queue = mp.Queue()
 	episode_history = []
 	score_history = []
 
@@ -277,41 +306,38 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 	n_steps = 0
 
 	print_interval = 100
+	envs = [copy.deepcopy(env) for _ in range(n_workers)]
 
-	for episode in range(n_games):
-		dones = [False]
-		state, _, _ = env.reset()
-		score = 0
-		steps = 0
-		while not all(dones) and steps < 50:
-			actions, probs, vals, dones = [], [], [], []
-			for i, agent in enumerate(agents):
-				action, prob, val = agent.choose_action(state[i])
-				actions.append(action)
-				probs.append(prob)
-				vals.append(val)
-			state_, reward, dones, _, _, _ = env.step(actions)
-			n_steps += 1
-			score += sum(reward)
-			for i, agent in enumerate(agents):
-				agent.remember(state[i], actions[i], probs[i], vals[i], reward[i], dones[i])
-			if n_steps % learning_step == 0:
+	for episode in range(n_games // n_workers):
+		processes = []
+		for i in range(n_workers):
+			p = mp.Process(target=train_single_episode_worker, args=(i, agents, envs[i], queue))
+			p.start()
+			processes.append(p)
+		for p in processes:
+			p.join()
+
+		for _ in range(n_workers):
+			steps, score = queue.get()
+			episode_history.append(steps)
+			score_history.append(score)
+			n_steps += steps
+
+		if episode % 4 == 0:
+			for agent in agents:
 				agent.learn()
-				learn_iters += 1
-			state = state_
-			steps += 1
-		score_history.append(score)
-		episode_history.append(n_steps)
+			learn_iters += 1
+
 		avg_score = np.mean(score_history[-100:])
 		if avg_score > best_score:
 			best_score = avg_score
 			agent.save_models()
-		if episode % print_interval == 0:
+		if episode % (print_interval // n_workers) == 0:
 			print(f'episode: {episode} | avg score: {avg_score:.1f} | learning_steps: {learn_iters}')
 	return score_history
 
 
-def evaluate(agents: List[Agent], env):
+def evaluate(agents: List[Agent], env): 
 	observation, _, _ = env.reset()
 	dones = [False]
 	while not all(dones):
@@ -329,6 +355,7 @@ if __name__ == '__main__':
 	# env = gym.make('CartPole-v0')
 	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
 	n_agents = 2
+	n_workers = 8
 	eval = False
 	# env = CatMouse(evaluate=eval)
 	env = Lumberjacks(n_agents, evaluate=eval)
@@ -342,7 +369,8 @@ if __name__ == '__main__':
 			alpha= 0.0003,
 			gamma=0.99,
 			n_epochs=4,
-			batch_size=128
+			batch_size=2048,
+			n_workers=n_workers
 		))
 	if eval:
 		for i, agent in enumerate(agents):
@@ -350,8 +378,7 @@ if __name__ == '__main__':
 		for i in range(10):
 			evaluate(agents, env)
 	else:
-		score_history = train(agents, env, n_games=20000)
+		score_history = train(agents, env, n_workers=n_workers, n_games=20000)
 		plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
 		for i, agent in enumerate(agents):
 			agent.save_models(id=i)
-	
