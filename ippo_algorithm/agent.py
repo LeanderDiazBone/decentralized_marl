@@ -1,23 +1,29 @@
 import itertools
 import os
+from typing import List
 import numpy as np
 import torch as T
 import torch.nn as nn
 import torch.optim as optim
 from torch.distributions import Categorical
 import matplotlib.pyplot as plt
+import multiprocessing as mp
+from threading import Condition
+
 
 
 
 device = T.device('cpu')
-# if T.cuda.is_available():
-# 	device = T.device('cuda')
-# 	print('using cuda')
-# elif T.backends.mps.is_available():
-# 	device = T.device('mps')
-# 	print('using mps')
-# else:
-# 	print('using cpu')
+
+device_speical = T.device('cpu')
+if T.cuda.is_available():
+	device_speical = T.device('cuda')
+	print('using cuda')
+elif T.backends.mps.is_available():
+	device_speical = T.device('mps')
+	print('using mps')
+else:
+	print('using cpu')
 
 
 class PpoMemory:
@@ -31,28 +37,45 @@ class PpoMemory:
 		self.n_workers = n_workers
 		self.batch_size = batch_size
 
-	def generate_batches(self): 
-		states = list(itertools.chain(*self.states))
-		actions = list(itertools.chain(*self.actions))
-		probs = list(itertools.chain(*self.probs))
-		vals = list(itertools.chain(*self.vals))
-		rewards = list(itertools.chain(*self.rewards))
-		dones = list(itertools.chain(*self.dones))
+		self.locks = [mp.Lock() for _ in range(n_workers)]
 
-		n_states = len(states)
+	def generate_batches(self):
+		for lock in self.locks:
+			lock.acquire()
+		states = list(itertools.chain(*list(itertools.chain(*self.states))))
+		actions = list(itertools.chain(*list(itertools.chain(*self.actions))))
+		probs = list(itertools.chain(*list(itertools.chain(*self.probs))))
+		vals = list(itertools.chain(*list(itertools.chain(*self.vals))))
+		rewards = list(itertools.chain(*list(itertools.chain(*self.rewards))))
+		dones = list(itertools.chain(*list(itertools.chain(*self.dones))))
+
+		n_states = len(dones)
 		batch_start = np.arange(0, n_states, self.batch_size)
 		indices = np.arange(n_states, dtype=np.int64)
 		np.random.shuffle(indices)
 		batches = [indices[i:i+self.batch_size] for i in batch_start]
-		return np.array(states), np.array(actions), np.array(probs), np.array(vals), np.array(rewards), np.array(dones), batches
 
-	def store_memory(self, worker_id, state, action, probs, vals, reward, done):
-		self.states[worker_id].append(state)
-		self.actions[worker_id].append(action)
-		self.probs[worker_id].append(probs)
-		self.vals[worker_id].append(vals)
-		self.rewards[worker_id].append(reward)
-		self.dones[worker_id].append(done)
+		states = np.array(states)
+		actions = np.array(actions)
+		probs = np.array(probs)
+		vals = np.array(vals)
+		rewards = np.array(rewards)
+		dones = np.array(dones)
+		batches = batches
+		self.clear_memory()
+
+		for lock in self.locks:
+			lock.release()
+		return states, actions, probs, vals, rewards, dones, batches
+
+	def store_memory(self, worker_id: int, states: List, actions: List, probs: List, vals: List, rewards: List, dones: List):
+		with self.locks[worker_id]:
+			self.states[worker_id].append(states)
+			self.actions[worker_id].append(actions)
+			self.probs[worker_id].append(probs)
+			self.vals[worker_id].append(vals)
+			self.rewards[worker_id].append(rewards)
+			self.dones[worker_id].append(dones)
 
 	def clear_memory(self):
 		self.states = [[]] * self.n_workers
@@ -147,8 +170,40 @@ class Agent:
 		self.critic = CriticNetwork(input_dims, alpha)
 		self.memory = PpoMemory(n_workers, batch_size)
 
+		self.learn_lock = mp.Lock()
+		self.condition = Condition()
+		self.active_readers = 0
+		self.writer_active = False
+
+	def acquire_read(self):
+		with self.condition:
+			while self.writer_active:
+				self.condition.wait()
+				self.active_readers += 1
+
+	def release_read(self):
+		with self.condition:
+			self.active_readers -= 1
+			if self.active_readers == 0:
+				self.condition.notify_all()
+
+	def acquire_write(self):
+		with self.condition:
+			while self.active_readers > 0 or self.writer_active:
+				self.condition.wait()
+				self.writer_active = True
+
+	def release_write(self):
+		with self.condition:
+			self.writer_active = False
+			self.condition.notify_all()
+
 	def remember(self, worker_id, state, action, probs, vals, reward, done):
-		self.memory.store_memory(worker_id, state, action, probs, vals, reward, done)
+		self.acquire_read()
+		try:
+			self.memory.store_memory(worker_id, state, action, probs, vals, reward, done)
+		finally:			
+			self.release_read()
 
 	def save_models(self, id: str=None):
 		self.actor.save_checkpoint(f'./checkpoints/ppo_actor_{id}_{self.env_name}.pth')
@@ -159,75 +214,83 @@ class Agent:
 		self.critic.load_checkpoint(f'./checkpoints/ppo_critic_{id}_{self.env_name}.pth')
 
 	def choose_action(self, observation: np.array):
-		state = T.tensor(np.array(observation), dtype=T.float32).to(self.actor.device)
-		dist = self.actor(state)
-		value = self.critic(state)
-		action = dist.sample()
+		self.acquire_read()
+		try:
+			state = T.tensor(np.array(observation), dtype=T.float32).to(device)
+			dist = self.actor(state)
+			value = self.critic(state)
+			action = dist.sample()
 
-		probs = T.squeeze(dist.log_prob(action)).item()
-		action = T.squeeze(action).item()
-		value = T.squeeze(value).item()
-		return action, probs, value
+			probs = T.squeeze(dist.log_prob(action)).item()
+			action = T.squeeze(action).item()
+			value = T.squeeze(value).item()
+			return action, probs, value
+		finally:			
+			self.release_read()
 
 	def learn(self):
-		for _ in range(self.n_epochs):
-			state_arr, action_arr, old_prob_arr, vals_arr, reward_arr, dones_arr, batches = self.memory.generate_batches()
-			values = vals_arr
-			advantages = np.zeros(len(reward_arr), dtype=np.float32)
+		self.acquire_write()
+		try:
+			for _ in range(self.n_epochs):
+				state_arr, action_arr, old_prob_arr, vals_arr, reward_arr, dones_arr, batches = self.memory.generate_batches()
+				values = vals_arr
+				advantages = np.zeros(len(reward_arr), dtype=np.float32)
 
-			for t in range(len(reward_arr) - 1):
-				discount = 1
-				a_t = 0
-				for k in range(t, len(reward_arr) - 1):
-					a_t += discount * (reward_arr[k] + self.gamma * values[k + 1] * (1 - int(dones_arr[k])) - values[k])
-					discount *= self.gamma * self.gae_lambda
-				advantages[t] = a_t
-			advantages = T.tensor(advantages, dtype=T.float32).to(self.actor.device)
-			values = T.tensor(values, dtype=T.float32).to(self.actor.device)
-			for batch in batches:
-				states = T.tensor(state_arr[batch], dtype=T.float32).to(self.actor.device)
-				old_probs = T.tensor(old_prob_arr[batch], dtype=T.float32).to(self.actor.device)
-				actions = T.tensor(action_arr[batch], dtype=T.float32).to(self.actor.device)
+				for t in range(len(reward_arr) - 1):
+					discount = 1
+					a_t = 0
+					for k in range(t, len(reward_arr) - 1):
+						a_t += discount * (reward_arr[k] + self.gamma * values[k + 1] * (1 - int(dones_arr[k])) - values[k])
+						discount *= self.gamma * self.gae_lambda
+					advantages[t] = a_t
+				advantages = T.tensor(advantages, dtype=T.float32).to(device_speical)
+				values = T.tensor(values, dtype=T.float32).to(device_speical)
+				for batch in batches:
+					states = T.tensor(state_arr[batch], dtype=T.float32).to(device_speical)
+					old_probs = T.tensor(old_prob_arr[batch], dtype=T.float32).to(device_speical)
+					actions = T.tensor(action_arr[batch], dtype=T.float32).to(device_speical)
 
-				dist = self.actor(states)
-				critic_values = self.critic(states)
-				critic_values = T.squeeze(critic_values)
+					dist = self.actor(states)
+					critic_values = self.critic(states)
+					critic_values = T.squeeze(critic_values)
 
-				new_probs = dist.log_prob(actions)
-				prob_ratio = new_probs.exp() / old_probs.exp()
+					new_probs = dist.log_prob(actions)
+					prob_ratio = new_probs.exp() / old_probs.exp()
 
-				weighted_probs = advantages[batch] * prob_ratio
-				weighted_clipped_probs = T.clamp(prob_ratio, 1 - self.policy_clip, 1 + self.policy_clip) * advantages[batch]
-				entropy = dist.entropy().mean()
-				actor_loss = -T.min(weighted_probs, weighted_clipped_probs).mean() - 1 * entropy
-				returns = advantages[batch] + values[batch]
-				critic_loss = (returns - critic_values) ** 2
-				critic_loss = critic_loss.mean()
+					weighted_probs = advantages[batch] * prob_ratio
+					weighted_clipped_probs = T.clamp(prob_ratio, 1 - self.policy_clip, 1 + self.policy_clip) * advantages[batch]
+					entropy = dist.entropy().mean()
+					actor_loss = -T.min(weighted_probs, weighted_clipped_probs).mean() - 1 * entropy
+					returns = advantages[batch] + values[batch]
+					critic_loss = (returns - critic_values) ** 2
+					critic_loss = critic_loss.mean()
 
-				self.plotter_x.append(len(self.plotter_x) + 1)
-				self.plotter_y.append(critic_loss.item())
-				total_loss = actor_loss + 0.5 * critic_loss
-				self.actor.optimizer.zero_grad()
-				self.critic.optimizer.zero_grad()
-				total_loss.mean().backward()
+					self.plotter_x.append(len(self.plotter_x) + 1)
+					self.plotter_y.append(critic_loss.item())
+					total_loss = actor_loss + 0.5 * critic_loss
+					self.actor.optimizer.zero_grad()
+					self.critic.optimizer.zero_grad()
+					total_loss.mean().backward()
 
-				# print("Actor Network Gradients:")
-				# for name, param in self.actor.named_parameters():
-				# 	if param.grad is not None:
-				# 		print(f"{name}: {param.grad}")
+					# print("Actor Network Gradients:")
+					# for name, param in self.actor.named_parameters():
+					# 	if param.grad is not None:
+					# 		print(f"{name}: {param.grad}")
 
-				# print("Critic Network Gradients:")
-				# for name, param in self.critic.named_parameters():
-				# 	if param.grad is not None:
-				# 		print(f"{name}: {param.grad}")
+					# print("Critic Network Gradients:")
+					# for name, param in self.critic.named_parameters():
+					# 	if param.grad is not None:
+					# 		print(f"{name}: {param.grad}")
 
-				self.actor.optimizer.step()
-				self.critic.optimizer.step()
+					self.actor.optimizer.step()
+					self.critic.optimizer.step()
 
-				# if len(self.plotter_x) > 10000:
-				# 	# print a plot and save it with the self.plotter_x and self.plotter_y
-				# 	plt.plot(self.plotter_x, self.plotter_y)
-				# 	plt.savefig('/Users/georgye/Documents/repos/ml/backprop/plots/ppo.png')
-				# 	plt.close()
-				# 	raise Exception('plotted')
-		self.memory.clear_memory()
+					# if len(self.plotter_x) > 10000:
+					# 	# print a plot and save it with the self.plotter_x and self.plotter_y
+					# 	plt.plot(self.plotter_x, self.plotter_y)
+					# 	plt.savefig('/Users/georgye/Documents/repos/ml/backprop/plots/ppo.png')
+					# 	plt.close()
+					# 	raise Exception('plotted')
+			# self.memory.clear_memory()
+		finally:
+			self.release_write()

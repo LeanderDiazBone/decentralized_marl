@@ -270,7 +270,7 @@ def plot_learning_curve(name, episode_history, score_history):
 	df.to_csv(f'{name}.csv', index=False)
 
 
-def train_single_episode_worker(worker_id: int, agents: List[Agent], env, n_workers: int, n_games=10000):
+def train_single_worker(worker_id: int, agents: List[Agent], env, n_workers: int, n_games=10000):
 	score_history = []
 
 	learn_iters = 0
@@ -278,12 +278,23 @@ def train_single_episode_worker(worker_id: int, agents: List[Agent], env, n_work
 	best_score = -100000
 
 	print_interval = 100
+	if worker_id == n_workers - 1:
+		n_games = n_games // 100
+
 	for episode in range(n_games):
 		start = time.time()
 		dones = [False]
 		state, _, _ = env.reset()
 		score = 0
 		steps = 0
+		buffer = {
+			'state': [[]] * len(agents),
+			'action': [[]] * len(agents),
+			'probs': [[]] * len(agents),
+			'vals': [[]] * len(agents),
+			'reward': [[]] * len(agents),
+			'done': [[]] * len(agents),
+		}
 		while not all(dones) and steps < 50:
 			actions, probs, vals, dones = [], [], [], []
 			for i, agent in enumerate(agents):
@@ -294,11 +305,31 @@ def train_single_episode_worker(worker_id: int, agents: List[Agent], env, n_work
 			state_, reward, dones, _, _, _ = env.step(actions)
 			score += sum(reward)
 			for i, agent in enumerate(agents):
-				agent.remember(worker_id, state[i], actions[i], probs[i], vals[i], reward[i], dones[i])
+				buffer['state'][i].append(state[i])
+				buffer['action'][i].append(actions[i])
+				buffer['probs'][i].append(probs[i])
+				buffer['vals'][i].append(vals[i])
+				buffer['reward'][i].append(reward[i])
+				buffer['done'][i].append(dones[i])
 			state = state_
 			steps += 1
 		for i, agent in enumerate(agents):
-			agent.remember(worker_id, state[i], actions[i], probs[i], vals[i], reward[i], True)
+			buffer['state'][i].append(state[i])
+			buffer['action'][i].append(actions[i])
+			buffer['probs'][i].append(probs[i])
+			buffer['vals'][i].append(vals[i])
+			buffer['reward'][i].append(reward[i])
+			buffer['done'][i].append(dones[i])
+		for i, agent in enumerate(agents):
+			agent.remember(
+				worker_id,
+				buffer['state'][i],
+				buffer['action'][i],
+				buffer['probs'][i],
+				buffer['vals'][i],
+				buffer['reward'][i],
+				buffer['done'][i]
+			)
 		score_history.append(score)
 		end = time.time()
 		# if worker_id == 0:
@@ -322,7 +353,7 @@ def train_single_episode_worker(worker_id: int, agents: List[Agent], env, n_work
 def train(agents: List[Agent], envs, n_workers=1, n_games=10000, best_score=-100, learning_step=128):
 	processes = []
 	for i in range(n_workers):
-		p = mp.Process(target=train_single_episode_worker, args=(i, agents, envs[i], n_workers))
+		p = mp.Process(target=train_single_worker, args=(i, agents, envs[i], n_workers))
 		p.start()
 		processes.append(p)
 	for p in processes:
