@@ -50,6 +50,8 @@ class ActorNetwork(nn.Module):
 			nn.Tanh(),
 			nn.Linear(fc1_dims, fc2_dims),
 			nn.Tanh(),
+			nn.Linear(fc1_dims, fc2_dims),
+			nn.Tanh(),
 			nn.Linear(fc2_dims, n_actions),
 			nn.Softmax(dim=-1)
 		)
@@ -75,6 +77,8 @@ class CriticNetwork(nn.Module):
 		self.checkpoint_file = os.path.join(chkpt_dir, 'critic_torch_ppo')
 		self.critic = nn.Sequential(
 			nn.Linear(*input_dims, fc1_dims),
+			nn.Tanh(),
+			nn.Linear(fc1_dims, fc2_dims),
 			nn.Tanh(),
 			nn.Linear(fc1_dims, fc2_dims),
 			nn.Tanh(),

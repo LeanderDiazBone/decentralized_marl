@@ -302,6 +302,6 @@ def train_lumberjacks_local(num_episodes, eval = False):
 
 def __main__():
     # train_coop_navigation_local(3000)
-    train_cat_mouse_local(3000)
+    train_cat_mouse_local(20000)
 
 __main__()

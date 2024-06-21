@@ -211,8 +211,8 @@ class CatMouseDiscrete:
 
 class Lumberjacks:
 	def __init__(self, n_agents, evaluate=False):
-		self.env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=n_agents, n_trees=8) #n_trees=8,
-		self.state_dim = 75 # [self.env.observation_space[agent].shape[0] for agent in range(self.env.n_agents)][0]
+		self.env = gym.make('ma_gym:Lumberjacks-v0', grid_shape=(5, 5), n_agents=n_agents, n_trees=8) #n_trees=8,
+		self.state_dim = [self.env.observation_space[agent].shape[0] for agent in range(self.env.n_agents)][0] # 75
 		self.obs_dim = self.env.observation_space[0].shape[0]
 		self.action_dim = 5
 		self.n_agents = self.env.n_agents
@@ -223,7 +223,7 @@ class Lumberjacks:
 	def reset(self):
 		obs_n = self.env.reset()
 		obs_n = np.array(obs_n)
-		obs_n = np.array([self.get_global_obs(), self.get_global_obs()])
+		# obs_n = np.array([self.get_global_obs(), self.get_global_obs()])
 		return obs_n, None, obs_n.flatten()
 
 	def step(self, a_n):
@@ -232,7 +232,7 @@ class Lumberjacks:
 		if self.evaluate:
 			time.sleep(0.1)
 			self.env.render()
-		obs_next_n = np.array([self.get_global_obs(), self.get_global_obs()])
+		# obs_next_n = np.array([self.get_global_obs(), self.get_global_obs()])
 		return obs_next_n, r_n, done_n, None, info, obs_next_n.flatten()
 
 	def get_global_obs(self):
@@ -285,7 +285,16 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 		steps = 0
 		while not all(dones) and steps < 50:
 			actions, probs, vals, dones = [], [], [], []
+			temp = [0, 0, 0, 0, 0]
+			prev_action = 0
 			for i, agent in enumerate(agents):
+				# if i == 0:
+				# 	action, prob, val = agent.choose_action(state[i])
+				# 	prev_action = action
+				# if i == 1:
+				# 	temp[prev_action] = 1
+				# 	temp = np.concatenate([state[i], np.array(temp)])
+				# 	action, prob, val = agent.choose_action(temp)
 				action, prob, val = agent.choose_action(state[i])
 				actions.append(action)
 				probs.append(prob)
@@ -295,8 +304,13 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 			score += sum(reward)
 			for i, agent in enumerate(agents):
 				agent.remember(state[i], actions[i], probs[i], vals[i], reward[i], dones[i])
+				# if i == 0:
+				# 	agent.remember(state[i], actions[i], probs[i], vals[i], reward[i], dones[i])
+				# else :
+				# 	agent.remember(temp, actions[i], probs[i], vals[i], reward[i], dones[i])
 			if n_steps % learning_step == 0:
-				agent.learn()
+				for agent in agents:
+					agent.learn()
 				learn_iters += 1
 			state = state_
 			steps += 1
@@ -312,24 +326,33 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 
 
 def evaluate(agents: List[Agent], env):
-	observation, _, _ = env.reset()
+	state, _, _ = env.reset()
 	dones = [False]
 	while not all(dones):
 		actions = []
+		temp = [0, 0, 0, 0, 0]
+		prev_action = 0
 		for i, agent in enumerate(agents):
-			action, _, _ = agent.choose_action(observation[i])
+			# if i == 0:
+			# 	action, prob, val = agent.choose_action(state[i])
+			# 	prev_action = action
+			# if i == 1:
+			# 	temp[prev_action] = 1
+			# 	temp = np.concatenate([state[i], np.array(temp)])
+			# 	action, prob, val = agent.choose_action(temp)
+			action, prob, val = agent.choose_action(state[i])
 			actions.append(action)
-		observation_, reward, dones, _, _, _ = env.step(actions)
+		state_, reward, dones, _, _, _ = env.step(actions)
 		env.render()
 		time.sleep(0.01)
-		observation = observation_
+		state = state_
 
 
 if __name__ == '__main__':
 	# env = gym.make('CartPole-v0')
 	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
 	n_agents = 2
-	eval = False
+	eval = True
 	# env = CatMouse(evaluate=eval)
 	env = Lumberjacks(n_agents, evaluate=eval)
 	# env = SimpleSpreadV3(evaluate=eval)
@@ -338,8 +361,8 @@ if __name__ == '__main__':
 		agents.append(Agent(
 			env_name='lumberjacks',
 			n_actions=env.action_dim,
-			input_dims=env.state_dim,
-			alpha= 0.0003,
+			input_dims=env.state_dim, #  + (5 if i == 1 else 0)
+			alpha= 0.0001,
 			gamma=0.99,
 			n_epochs=4,
 			batch_size=128
@@ -350,6 +373,8 @@ if __name__ == '__main__':
 		for i in range(10):
 			evaluate(agents, env)
 	else:
+		for i, agent in enumerate(agents):
+			agent.load_models(id=i)
 		score_history = train(agents, env, n_games=20000)
 		plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
 		for i, agent in enumerate(agents):
