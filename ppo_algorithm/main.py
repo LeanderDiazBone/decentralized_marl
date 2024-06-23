@@ -8,6 +8,8 @@ from agent import Agent
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_ma import CatMouseMA
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_discrete import CatMouseMAD
 
+from marl_gym_george.marl_gym.envs.cat_mouse.cat_mouse_ma import CatMouseMA as CatMouseMAGeorge
+
 
 def generate_action_space(n_actions, n_agents, l):
 	if n_agents == 0:
@@ -19,6 +21,7 @@ def generate_action_space(n_actions, n_agents, l):
 			l.append(temp.copy() + [i])
 	l = generate_action_space(n_actions, n_agents-1, l)
 	return l
+
 
 class SimpleSpreadV3:
 	def __init__(self, evaluate=False):
@@ -101,6 +104,75 @@ class CatMouse:
 
 	def __init__(self, evaluate=False):
 		self.env = CatMouseMA(observation_radius=1, n_agents=2, n_prey=2)
+		self.state_dim = self.env.n_agents * 2 + self.env.n_prey * 3
+		self.obs_dim = self.env.n_agents * 3 + self.env.n_prey * 3
+		self.action_dim = 16
+		self.n_agents = self.env.n_agents
+		self.env.reset()
+		self.evaluate = evaluate
+
+	def reset(self):
+		obs_n, info = self.env.reset()
+		obs_n = np.array(self.trans_obs(obs_n))
+		return obs_n, info, self.trans_state(self.env.get_global_obs())
+
+	def step(self, a_n):
+		obs_next_n, r_n, done_n, trunc, info = self.env.step(self.get_action(a_n))
+		obs_next_n = self.trans_obs(obs_next_n)
+		r_n = sum(r_n)
+		if self.evaluate:
+			time.sleep(0.1)
+			self.env.render()
+		return obs_next_n, r_n, done_n, trunc, info, self.trans_state(self.env.get_global_obs())
+
+	def render(self):
+		self.env.render()
+
+	def close(self):
+		self.env.close()
+
+
+class CatMouseGeorge:
+	@staticmethod
+	def get_action(action):
+		action_dict = {
+			0: 0,
+			1: 0.25,
+			2: 0.5,
+			3: 0.75
+		}
+		ret = []
+		for x in range(4):
+			for y in range(4):
+				ret.append([action_dict[x], action_dict[y]])
+		return ret[action]
+
+	@staticmethod
+	def trans_obs(obs):
+		ret = []
+		for agent_obs in obs:
+			temp = []
+			temp.append(agent_obs['agents']['cur_agent'])
+			for agent_pos in agent_obs['agents']['position']:
+				temp.append(agent_pos)
+			for prey_pos in agent_obs['prey']['position']:
+				temp.append(prey_pos)
+			temp.append(agent_obs['prey']['caught'])
+			ret.append(np.concatenate(temp))
+		return np.array(ret)
+
+	@staticmethod
+	def trans_state(state):
+		ret = []
+		for agent_pos in state['agents']['position']:
+			ret += agent_pos.tolist()
+		for i, prey_pos in enumerate(state['prey']['position']):
+			ret += prey_pos.tolist()
+			ret.append(state['prey']['caught'][i])
+		return np.array(ret)
+
+	def __init__(self, evaluate=False):
+		self.env = CatMouseMAGeorge(observation_radius=1, n_agents=2, n_prey=2)
 		self.state_dim = self.env.n_agents * 2 + self.env.n_prey * 3
 		self.obs_dim = self.env.n_agents * 3 + self.env.n_prey * 3
 		self.action_dim = 16
@@ -304,12 +376,13 @@ if __name__ == '__main__':
 	# env = gym.make('CartPole-v0')
 	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
 	learning_step = 128
-	eval = False
-	env = CatMouse(evaluate=eval)
+	eval = True
+	env = CatMouseGeorge(evaluate=eval)
+	# env = CatMouse(evaluate=eval)
 	# env = Lumberjacks(evaluate=eval)
 	# env = SimpleSpreadV3(evaluate=eval)
 	agent = Agent(
-		env_name='lumberjacks',
+		env_name='cat_mouse',
 		n_actions=env.action_dim,
 		input_dims=env.state_dim,
 		alpha= 0.0003,
@@ -322,6 +395,6 @@ if __name__ == '__main__':
 		for i in range(10):
 			evaluate(agent, env)
 	else:
-		train(agent, env, 128)
+		train(agent, env, n_games=100000, learning_step=learning_step)
 		agent.save_models()
 	

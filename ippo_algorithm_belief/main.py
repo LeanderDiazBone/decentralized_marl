@@ -184,6 +184,7 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 def evaluate(agents: List[Agent], env):
 	state, _, _ = env.reset()
 	dones = [False]
+	rewards = 0
 	while not all(dones):
 		actions = []
 		temp = [0, 0, 0, 0, 0]
@@ -199,17 +200,19 @@ def evaluate(agents: List[Agent], env):
 			action, prob, val = agent.choose_action(state[i])
 			actions.append(action)
 		state_, reward, dones, _, _, _ = env.step(actions)
+		rewards += sum(reward)
 		env.render()
-		print(state_[i])
-		time.sleep(20)
+		# print(state_[i])
+		time.sleep(0.1)
 		state = state_
+	print(rewards)
 
 
 if __name__ == '__main__':
 	# env = gym.make('CartPole-v0')
 	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
 	n_agents = 2
-	eval = False
+	eval = True
 	# env = CatMouse(evaluate=eval)
 	env = Lumberjacks(n_agents, evaluate=eval)
 	# env = SimpleSpreadV3(evaluate=eval)
@@ -225,14 +228,14 @@ if __name__ == '__main__':
 			batch_size=128
 		))
 	if eval:
-		#for i, agent in enumerate(agents):
-		#	agent.load_models(id=i)
+		for i, agent in enumerate(agents):
+			agent.load_models(id=i)
 		for i in range(10):
 			evaluate(agents, env)
 	else:
-		# for i, agent in enumerate(agents):
-		# 	agent.load_models(id=i)
-		score_history = train(agents, env, n_games=20000)
+		for i, agent in enumerate(agents):
+			agent.load_models(id=i)
+		score_history = train(agents, env, n_games=25000)
 		plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
 		for i, agent in enumerate(agents):
 			agent.save_models(id=i)

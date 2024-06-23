@@ -7,14 +7,14 @@ from torch.distributions import Categorical
 import matplotlib.pyplot as plt
 
 device = T.device('cpu')
-if T.cuda.is_available():
-	device = T.device('cuda')
-	print('using cuda')
-elif T.backends.mps.is_available():
-	device = T.device('mps')
-	print('using mps')
-else:
-	print('using cpu')
+# if T.cuda.is_available():
+# 	device = T.device('cuda')
+# 	print('using cuda')
+# elif T.backends.mps.is_available():
+# 	device = T.device('mps')
+# 	print('using mps')
+# else:
+# 	print('using cpu')
 
 class PpoMemory:
 	def __init__(self, batch_size: int, memory_size=10000):
@@ -25,7 +25,7 @@ class PpoMemory:
 		self.rewards = []
 		self.dones = []
 		self.batch_size = batch_size
-		self.memory_size
+		self.memory_size = memory_size
 
 	def generate_batches(self):
 		n_states = len(self.states)
