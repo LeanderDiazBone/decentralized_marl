@@ -128,18 +128,18 @@ class Critic_MLP(nn.Module):
 		value = self.fc3(x)
 		return value
 
-	def save_checkpoint(self, filename='./checkpoints/mapppo_critic.pth'):
+	def save_checkpoint(self, filename='./checkpoints/mapppo_critic_lumberjacks.pth'):
 		os.makedirs(os.path.dirname(filename), exist_ok=True)
 		torch.save(self.state_dict(), filename)
 
-	def load_checkpoint(self, filename='./checkpoints/mapppo_critic.pth'):
+	def load_checkpoint(self, filename=f'./checkpoints/mapppo_critic_lumberjacks.pth'):
 		self.load_state_dict(torch.load(filename))
 
 
 class Agent:
 	def __init__(self, env_name: str, continuous: bool, n_agents: int, state_dim: int, obs_dim: int, action_dim: int,
-			episode_limit=25, batch_size=64, mini_batch_size=64, max_train_steps=int(3e6),
-			lr=5e-4, gamma=0.99, lambda_=0.95, epsilon=0.2, K_epochs=15, entropy_coef=0.1,):
+			episode_limit=50, batch_size=64, mini_batch_size=64, max_train_steps=int(3e6),
+			lr=5e-4, gamma=0.99, lambda_=0.95, epsilon=0.2, n_epochs=15, entropy_coef=0.1,):
 		self.plotter_x = []
 		self.plotter_y = []
 		self.env_name = env_name
@@ -159,7 +159,7 @@ class Agent:
 		self.gamma = gamma
 		self.lamda = lambda_
 		self.epsilon = epsilon
-		self.K_epochs = K_epochs
+		self.n_epochs = n_epochs
 		self.entropy_coef = entropy_coef
 
 		self.actor = Actor_MLP(obs_dim, action_dim, continuous=continuous)
@@ -223,7 +223,7 @@ class Agent:
 		actor_inputs, critic_inputs = self.get_inputs(batch)
 
 		# Optimize policy for K epochs:
-		for _ in range(self.K_epochs):
+		for _ in range(self.n_epochs):
 			for index in BatchSampler(SequentialSampler(range(self.batch_size)), self.mini_batch_size, False):
 				values_now = self.critic(critic_inputs[index]).squeeze(-1)
 				if self.continuous:
@@ -231,11 +231,14 @@ class Agent:
 					dist_now = Normal(mu, sig)
 					dist_entropy = dist_now.entropy()
 				else:
-					probs_now = self.actor(actor_inputs[index])
+					x = actor_inputs[index]
+					probs_now = self.actor(x)
+					# probs_now = torch.nan_to_num(probs_now, nan=1e-6)
 					dist_now = Categorical(probs_now)
 					dist_entropy = dist_now.entropy()
 				a_logprob_n_now = dist_now.log_prob(batch['a_n'][index])
 				# a/b=exp(log(a)-log(b))
+
 				ratios = torch.exp(a_logprob_n_now - batch['a_logprob_n'][index].detach())
 				surr1 = ratios * adv[index]
 				surr2 = torch.clamp(ratios, 1 - self.epsilon, 1 + self.epsilon) * adv[index]
@@ -274,13 +277,13 @@ class Agent:
 		critic_inputs = torch.cat([x for x in critic_inputs], dim=-1)  # critic_inputs.shape=(batch_size, episode_limit, N, critic_input_dim)
 		return actor_inputs, critic_inputs
 
-	def save_model(self):
-		self.actor.save_checkpoint(filename=f'./checkpoints/mapppo_actor_{self.env_name}.pth')
-		self.critic.save_checkpoint(filename=f'./checkpoints/mapppo_critic_{self.env_name}.pth')
+	def save_models(self, id: str=None):
+		self.actor.save_checkpoint(f'./checkpoints/mappo_actor_{id}_{self.env_name}.pth')
+		self.critic.save_checkpoint(f'./checkpoints/mappo_critic_{id}_{self.env_name}.pth')
 
-	def load_model(self):
-		self.actor.load_checkpoint(filename=f'./checkpoints/mapppo_actor_{self.env_name}.pth')
-		self.critic.load_checkpoint(filename=f'./checkpoints/mapppo_critic_{self.env_name}.pth')
+	def load_models(self, id: str=None):
+		self.actor.load_checkpoint(f'./checkpoints/mappo_actor_{id}_{self.env_name}.pth')
+		self.critic.load_checkpoint(f'./checkpoints/mappo_critic_{id}_{self.env_name}.pth')
 
 				# if len(self.plotter_x) > 10000:
 				# 	# print a plot and save it with the self.plotter_x and self.plotter_y
