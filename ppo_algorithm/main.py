@@ -244,11 +244,10 @@ def state_to_array_lumber(state):
 
 
 class Lumberjacks:
-	def __init__(self, evaluate=False, grid_size=5, n_agents=2, n_trees=8, observation_rad=1, communication_rad=1):
-		self.env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(grid_size, grid_size), n_agents=n_agents, n_trees=n_trees)
-		self.state_dim = np.sum([self.env.observation_space[agent].shape[0] for agent in range(self.env.n_agents)])
-		self.get_env_step = lambda env: env.get_agent_obs()[0][3]
-		self.get_local_obs = lambda env: get_local_observations_lumber(np.append(np.array([self.get_env_step(env)]), state_to_array_lumber(env.get_global_obs())), n_agents, n_trees, obs_rad=observation_rad, com_rad=communication_rad)
+	def __init__(self, evaluate=False, grid_size=5, n_agents=2, n_trees=8, observation_rad=1):
+		self.env = gym.make('ma_gym:Lumberjacks-v0', grid_shape=(grid_size, grid_size), n_agents=n_agents, n_trees=n_trees)
+		self.grid_size = grid_size
+		self.state_dim = (grid_size ** 2) * 2
 		self.obs_dim = self.env.observation_space[1].shape[0]
 		self.action_dim = 5 ** self.env.n_agents
 		self.n_agents = self.env.n_agents
@@ -259,7 +258,7 @@ class Lumberjacks:
 	def reset(self):
 		obs_n = self.env.reset()
 		obs_n = np.array(obs_n)
-		return obs_n, None, obs_n.flatten()
+		return obs_n, None, self.get_global_obs()
 
 	def step(self, a_n):
 		obs_next_n, r_n, done_n, info = self.env.step(self.ACTION_SPACE[a_n])
@@ -269,7 +268,22 @@ class Lumberjacks:
 		if self.evaluate:
 			time.sleep(0.1)
 			self.env.render()
-		return obs_next_n, r_n, done_n, None, info, obs_next_n.flatten()
+		return obs_next_n, r_n, done_n, None, info, self.get_global_obs()
+
+	def get_global_obs(self):
+		def get_value(x, y):
+			return x * self.grid_size + y
+		global_env = self.env.get_global_obs()
+		glob_state = [0 for _ in range(self.state_dim)]
+		agent_pos = global_env[0]
+		for i, agent in enumerate(agent_pos):
+			glob_state[get_value(agent[0] - glob_state[1] - 1, agent[1] - glob_state[2] - 1) + 3] += 1
+
+		tree_pos = global_env[1]
+		for pos, strength in tree_pos:
+			temp = get_value(pos[0] - 1, pos[1] - 1)
+			glob_state[temp + (self.grid_size**2)] = strength
+		return glob_state
 
 	def render(self):
 		self.env.render()
@@ -341,7 +355,7 @@ def evaluate(agent: Agent, env):
 
 
 def run_experiment_lumberjack(n_games, exp_dir, exp_name, n_agents, n_trees, grid_size, obs_rad, comm_rad):
-	env = Lumberjacks(n_agents = n_agents, n_trees = n_trees, grid_size = grid_size, observation_rad = obs_rad, communication_rad = comm_rad)
+	env = Lumberjacks(n_agents = n_agents, n_trees = n_trees, grid_size = grid_size, observation_rad=obs_rad)
 	agent = Agent(
 		env_name='lumberjacks',
 		n_actions=env.action_dim,
@@ -384,42 +398,43 @@ def run_experiments_lumberjack(exp_dir, n_games = 40000, n_runs = 3, single_proc
 			p.join()
 
 
-# if __name__ == '__main__':
-# 	# env = gym.make('CartPole-v0')
-# 	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
-# 	learning_step = 128
-# 	eval = False
-# 	# env = CatMouseDiscrete(evaluate=eval)
-# 	env = Lumberjacks(evaluate=eval)
-# 	# env = SimpleSpreadV3(evaluate=eval)
-# 	agent = Agent(
-# 		env_name='lumberjacks',
-# 		n_actions=env.action_dim,
-# 		input_dims=env.state_dim,
-# 		alpha= 0.0003,
-# 		gamma=0.99,
-# 		n_epochs=4,
-# 		batch_size=64,
-# 	)
-# 	if eval:
-# 		agent.load_models()
-# 		for i in range(10):
-# 			evaluate(agent, env)
-# 	else:
-# 		train(agent, env)
-# 		agent.save_models()
+if __name__ == '__main__':
+	# env = gym.make('CartPole-v0')
+	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
+	learning_step = 128
+	eval = False
+	# env = CatMouseDiscrete(evaluate=eval)
+	env = Lumberjacks(evaluate=eval)
+	# env = SimpleSpreadV3(evaluate=eval)
+	agent = Agent(
+		env_name='lumberjacks',
+		n_actions=env.action_dim,
+		input_dims=env.state_dim,
+		alpha= 0.0003,
+		gamma=0.99,
+		n_epochs=4,
+		batch_size=64,
+	)
+	if eval:
+		agent.load_models()
+		for i in range(10):
+			evaluate(agent, env)
+	else:
+		agent.load_models()
+		train(agent, env)
+		agent.save_models()
 
 
 def init_dir(dir_name):
 	if not os.path.exists(dir_name):
 		os.makedirs(dir_name)
 
-if __name__ == '__main__':
-	model_dir = "checkpoints/"
-	exp_out_dir = "exp_outputs/"
-	init_dir(model_dir)
-	init_dir(exp_out_dir)
-	n_games = 1000
-	n_runs = 1
-	single_proc = False
-	run_experiments_lumberjack(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)
+# if __name__ == '__main__':
+# 	model_dir = "checkpoints/"
+# 	exp_out_dir = "exp_outputs/"
+# 	init_dir(model_dir)
+# 	init_dir(exp_out_dir)
+# 	n_games = 1000
+# 	n_runs = 1
+# 	single_proc = False
+# 	run_experiments_lumberjack(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)

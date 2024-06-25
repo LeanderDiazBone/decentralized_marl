@@ -247,7 +247,7 @@ def state_to_array_lumber(state):
 
 
 class Lumberjacks:
-	def __init__(self, n_agents, n_trees, grid_size=5, observation_rad=1, communication_rad=0, evaluate=False):
+	def __init__(self, n_agents, n_trees, grid_size=5, observation_rad=1, evaluate=False):
 		self.env = gym.make('ma_gym:Lumberjacks-v0', grid_shape=(grid_size, grid_size), n_agents=n_agents, n_trees=n_trees)
 		self.grid_size = grid_size
 		self.obs_rad = observation_rad
@@ -275,7 +275,7 @@ class Lumberjacks:
 
 	def get_global_obs(self, agent_id):
 		def get_value(x, y):
-			return (x + self.obs_rad) * (2 + self.obs_rad) + (y + self.obs_rad)
+			return (x + self.obs_rad) * (2 * self.obs_rad + 1)  + (y + self.obs_rad)
 		global_env = self.env.get_global_obs()
 		glob_state = [0 for _ in range(3 + self.n_agents * (self.grid_size**2))]
 		agent_pos = global_env[0]
@@ -421,43 +421,43 @@ def init_dir(dir_name):
 
 
 if __name__ == '__main__':
-	model_dir = "checkpoints/"
-	exp_out_dir = "exp_outputs/"
-	init_dir(model_dir)
-	init_dir(exp_out_dir)
-	n_games = 1000
-	n_runs = 1
-	single_proc = False
-	run_experiments_lumberjack(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)
+	# model_dir = "checkpoints/"
+	# exp_out_dir = "exp_outputs/"
+	# init_dir(model_dir)
+	# init_dir(exp_out_dir)
+	# n_games = 1000
+	# n_runs = 1
+	# single_proc = False
+	# run_experiments_lumberjack(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)
 
-	# # env = gym.make('CartPole-v0')
-	# # env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
-	# n_agents = 2
-	# eval = False
-	# # env = CatMouse(evaluate=eval)
-	# env = Lumberjacks(n_agents, evaluate=eval)
-	# # env = SimpleSpreadV3(evaluate=eval)
-	# agents = []
-	# for i in range(n_agents):
-	# 	agents.append(Agent(
-	# 		env_name='lumberjacks',
-	# 		n_actions=env.action_dim,
-	# 		input_dims=env.state_dim, #  + (5 if i == 1 else 0)
-	# 		alpha= 0.0001,
-	# 		gamma=0.99,
-	# 		n_epochs=4,
-	# 		batch_size=128
-	# 	))
-	# if eval:
-	# 	for i, agent in enumerate(agents):
-	# 		agent.load_models(id=i)
-	# 	for i in range(10):
-	# 		evaluate(agents, env)
-	# else:
-	# 	# for i, agent in enumerate(agents):
-	# 	# 	agent.load_models(id=i)
-	# 	score_history = train(agents, env, n_games=50000)
-	# 	plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
-	# 	for i, agent in enumerate(agents):
-	# 		agent.save_models(id=i)
+	# env = gym.make('CartPole-v0')
+	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
+	n_agents = 2
+	eval = False
+	# env = CatMouse(evaluate=eval)
+	env = Lumberjacks(n_agents, evaluate=eval, n_trees=8)
+	# env = SimpleSpreadV3(evaluate=eval)
+	agents = []
+	for i in range(n_agents):
+		agents.append(Agent(
+			env_name='lumberjacks',
+			n_actions=env.action_dim,
+			input_dims=env.state_dim, #  + (5 if i == 1 else 0)
+			alpha= 0.0001,
+			gamma=0.99,
+			n_epochs=4,
+			batch_size=128
+		))
+	if eval:
+		for i, agent in enumerate(agents):
+			agent.load_models(id=i)
+		for i in range(10):
+			evaluate(agents, env)
+	else:
+		# for i, agent in enumerate(agents):
+		# 	agent.load_models(id=i)
+		score_history = train(agents, env, n_games=50000)
+		plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
+		for i, agent in enumerate(agents):
+			agent.save_models(id=i)
 	

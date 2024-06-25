@@ -5,7 +5,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 from normalization import Normalization
-from buffer import Buffer
 from agent import Agent
 from pettingzoo.mpe import simple_spread_v3
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_ma import CatMouseMA
@@ -221,97 +220,57 @@ class Lumberjacks:
 		self.env.close()
 
 
-class Runner_MAPPO:
-	def __init__(self, env, env_name, number, seed):
-		self.env_name = env_name
-		self.number = number
-
-		self.seed = seed
-		np.random.seed(self.seed)
-		torch.manual_seed(self.seed)
-
-		self.episode_limit = 25
-		self.max_train_steps = 1000000
-		self.evaluate_freq = 200
-
-		self.env = env
-		self.n_agents = self.env.n_agents
-		self.obs_dim = self.env.obs_dim
-		self.action_dim = self.env.action_dim
-		self.state_dim = self.env.state_dim
-		self.batch_size = 64
-
-		self.agent_n = Agent(
-			env_name=env_name, continuous=False,
-			n_agents=self.n_agents, obs_dim=self.obs_dim, action_dim=self.action_dim, state_dim=self.state_dim,
-			episode_limit=self.episode_limit, batch_size=self.batch_size, mini_batch_size=8,
-			max_train_steps=self.max_train_steps
-		)
-		self.buffer = Buffer(n_agents=self.n_agents, obs_dim=self.obs_dim,
-				state_dim=self.state_dim, episode_limit=self.episode_limit, batch_size=self.batch_size)
-
-		self.evaluate_rewards = []
-		self.evaluate_rewards_timestep = []
-		self.total_steps = 0
-
-		self.reward_norm = Normalization(shape=self.n_agents)
-
-	def run_episode(self, evaluate=False):
+def train(agent: Agent, env, n_games=10000):
+	reward_norm = Normalization(shape=agent.N)
+	total_episodes = 0
+	total_steps = 0
+	log_interval = 100
+	for epi in range(n_games):
 		episode_reward = 0
-		obs_n, info, s = self.env.reset()
-
-		for episode_step in range(self.episode_limit):
-			a_n, a_logprob_n = self.agent_n.choose_action(obs_n, evaluate=evaluate)
-			v_n = self.agent_n.get_value(s)
-			obs_next_n, r_n, done_n, _, _, s_next = self.env.step(a_n)
+		obs_n, _, s = env.reset()
+		for episode_step in range(50):
+			a_n, a_logprob_n = agent.choose_action(obs_n, evaluate=evaluate)
+			v_n = agent.get_value(s)
+			obs_next_n, r_n, done_n, _, _, s_next = env.step(a_n)
 			episode_reward += sum(r_n)
-			# episode_reward += r_n[0]
-
-			if not evaluate:
-				r_n = self.reward_norm([r_n])
-				self.buffer.store_transition(episode_step, obs_n, s, v_n, a_n, a_logprob_n, r_n, done_n)
-
+			r_n = reward_norm([r_n])
+			agent.buffer.store_transition(episode_step, obs_n, s, v_n, a_n, a_logprob_n, r_n, done_n)
 			obs_n = np.array(obs_next_n)
 			s = s_next
-
+			total_steps += 1
 			if all(done_n):
 				break
+		if epi % log_interval == 0:
+			print(f'Episode:{epi}, Reward:{episode_reward}, Total Steps:{total_steps}')
+		# Store v_n in the last step
+		v_n = agent.get_value(s_next)
+		agent.buffer.store_last_value(episode_step + 1, v_n)
 
-		if not evaluate:
-			# Store v_n in the last step
-			v_n = self.agent_n.get_value(s_next)
-			self.buffer.store_last_value(episode_step + 1, v_n)
+		total_episodes += 1
 
-		return episode_reward, episode_step + 1
+		if agent.buffer.episode_num == agent.batch_size:
+			agent.train(total_steps)
 
-	def train(self):
-		total_episodes = 0
-		while self.total_steps < self.max_train_steps:
-			if total_episodes % self.evaluate_freq == 0:
-				self.evaluate_policy()
 
-			episode_reward, episode_steps = self.run_episode()
-			total_episodes += 1
-			self.total_steps += episode_steps
+def evaluate(agent: Agent, env):
+	evaluate_reward = 0
+	total_steps = 0
+	for _ in range(5):
+		episode_reward = 0
+		obs_n, _, s = env.reset()
+		for _ in range(50):
+			a_n, a_logprob_n = agent.choose_action(obs_n, evaluate=evaluate)
+			obs_next_n, r_n, done_n, _, _, s_next = env.step(a_n)
+			episode_reward += sum(r_n)
+			obs_n = np.array(obs_next_n)
+			s = s_next
+			total_steps += 1
+			if all(done_n):
+				break
+		evaluate_reward += episode_reward
 
-			if self.buffer.episode_num == self.batch_size:
-				self.agent_n.train(self.buffer, self.total_steps)
-				self.buffer.reset_buffer()
-
-		self.evaluate_policy()
-		self.env.close()
-
-	def evaluate_policy(self):
-		evaluate_reward = 0
-		for _ in range(5):
-			episode_reward, _ = self.run_episode(evaluate=True)
-			evaluate_reward += episode_reward
-
-		evaluate_reward /= 5
-		self.evaluate_rewards.append(evaluate_reward)
-		self.evaluate_rewards_timestep.append(self.total_steps)
-
-		print(f'total_steps:{self.total_steps} \t evaluate_reward:{evaluate_reward}')
+	evaluate_reward /= 5
+	print(f'evaluate_reward:{evaluate_reward}')
 
 
 if __name__ == '__main__':
@@ -320,21 +279,27 @@ if __name__ == '__main__':
 	# env = CatMouse(evaluate=evaluate)
 	# env = SimpleSpreadV3(evaluate=evaluate)
 	env = Lumberjacks(evaluate=evaluate)
-	runner = Runner_MAPPO(env, env_name='simple_spread', number=3, seed=0)
-	if evaluate:
-		runner.agent_n.load_model()
-		runner.evaluate_policy()
-	else:
-		runner.train()
-		runner.agent_n.save_model()
+	agent = Agent(
+		env_name='lumberjacks', continuous=False,
+		n_agents=env.n_agents, obs_dim=env.obs_dim, action_dim=env.action_dim, state_dim=env.state_dim,
+		episode_limit=50, batch_size=16, mini_batch_size=8,
+		max_train_steps=300000
+	)
 
-		plt.figure(figsize=(10, 5))
-		plt.plot(runner.evaluate_rewards_timestep, runner.evaluate_rewards)
-		plt.xlabel('Episodes')
-		plt.ylabel('Reward')
-		plt.title('Reward vs Episodes')
-		plt.grid(True)
-		plt.savefig('reward_vs_episodes_simple_spread.png')
-		data = {'Episodes': runner.evaluate_rewards_timestep, 'Reward': runner.evaluate_rewards}
-		df = pd.DataFrame(data)
-		df.to_csv('reward_vs_episodes_simple_spread.csv', index=False)
+	if evaluate:
+		agent.load_model()
+		evaluate(agent, env)
+	else:
+		train(agent, env, n_games=100000)
+		agent.agent_n.save_model()
+
+		# plt.figure(figsize=(10, 5))
+		# plt.plot(runner.evaluate_rewards_timestep, runner.evaluate_rewards)
+		# plt.xlabel('Episodes')
+		# plt.ylabel('Reward')
+		# plt.title('Reward vs Episodes')
+		# plt.grid(True)
+		# plt.savefig('reward_vs_episodes_simple_spread.png')
+		# data = {'Episodes': runner.evaluate_rewards_timestep, 'Reward': runner.evaluate_rewards}
+		# df = pd.DataFrame(data)
+		# df.to_csv('reward_vs_episodes_simple_spread.csv', index=False)
