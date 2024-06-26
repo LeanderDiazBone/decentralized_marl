@@ -195,7 +195,7 @@ class CatMouseDiscrete:
 class Lumberjacks:
 	def __init__(self, evaluate=False, grid_size=5, n_agents=2, n_trees=8, observation_rad=1):
 		self.env = gym.make('ma_gym:Lumberjacks-v0', grid_shape=(grid_size, grid_size), n_agents=n_agents, n_trees=n_trees) #n_trees=8,
-		self.state_dim = (grid_size ** 2 ) * 2 # np.sum([self.env.observation_space[agent].shape[0] for agent in range(self.env.n_agents)])
+		self.state_dim = np.sum([self.env.observation_space[agent].shape[0] for agent in range(self.env.n_agents)]) # (grid_size ** 2 ) * 2 
 		self.obs_dim = self.env.observation_space[1].shape[0]
 		self.action_dim = 5
 		self.n_agents = self.env.n_agents
@@ -206,7 +206,7 @@ class Lumberjacks:
 	def reset(self):
 		obs_n = self.env.reset()
 		obs_n = np.array(obs_n)
-		return obs_n, None, self.get_global_obs() # obs_n.flatten()
+		return obs_n, None, obs_n.flatten() # self.get_global_obs() #
 
 	def step(self, a_n):
 		obs_next_n, r_n, done_n, info = self.env.step(a_n)
@@ -214,7 +214,7 @@ class Lumberjacks:
 		if self.evaluate:
 			time.sleep(0.1)
 			self.env.render()
-		return obs_next_n, r_n, done_n, None, info, self.get_global_obs() #obs_next_n.flatten()
+		return obs_next_n, r_n, done_n, None, info, obs_next_n.flatten() #  self.get_global_obs() #
 
 	def get_global_obs(self):
 		def get_value(x, y):
@@ -346,48 +346,49 @@ def init_dir(dir_name):
 	if not os.path.exists(dir_name):
 		os.makedirs(dir_name)
 
-if __name__ == '__main__':
-	model_dir = "checkpoints/"
-	exp_out_dir = "exp_outputs/"
-	init_dir(model_dir)
-	init_dir(exp_out_dir)
-	n_games = 300000
-	n_runs = 1
-	single_proc = False
-	run_experiments_lumberjack(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=single_proc)
-
-
-
 # if __name__ == '__main__':
-# 	# self.env = SimpleSpreadV3()
-# 	evaluate = False
-# 	# env = CatMouse(evaluate=evaluate)
-# 	# env = SimpleSpreadV3(evaluate=evaluate)
-# 	env = Lumberjacks(n_agents=2, n_trees=6, grid_size=4)
-# 	# agent = Agent(
-# 	# 	env_name='lumberjacks', continuous=False,
-# 	# 	n_agents=env.n_agents, obs_dim=env.obs_dim, action_dim=env.action_dim, state_dim=env.state_dim,
-# 	# 	episode_limit=50, batch_size=64, mini_batch_size=8,
-# 	# 	max_train_steps=1000000
-# 	# )
-# 	agent = Agent(
-# 		env_name='lumberjacks',
-# 		action_dim=env.action_dim,
-# 		obs_dim=env.obs_dim,
-# 		state_dim=env.state_dim,
-# 		lr=0.0003,
-# 		gamma=0.99,
-# 		n_epochs=4,
-# 		batch_size=64,
-# 		continuous=False,
-# 		n_agents=env.n_agents,
-# 		episode_limit=50,
-# 		max_train_steps=10000000,
-# 		mini_batch_size=8
-# 	)
-# 	if evaluate:
-# 		agent.load_model()
-# 		evaluate(agent, env)
-# 	else:
-# 		train(agent, env, n_games=11800)
-# 		agent.save_model()
+# 	model_dir = "checkpoints/"
+# 	exp_out_dir = "exp_outputs/"
+# 	init_dir(model_dir)
+# 	init_dir(exp_out_dir)
+# 	n_games = 300000
+# 	n_runs = 1
+# 	single_proc = False
+# 	run_experiments_lumberjack(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=single_proc)
+
+
+
+if __name__ == '__main__':
+	# self.env = SimpleSpreadV3()
+	eval = True
+	n_games = 20800
+	# env = CatMouse(evaluate=evaluate)
+	# env = SimpleSpreadV3(evaluate=evaluate)
+	# env = Lumberjacks(n_agents=4, n_trees=16, grid_size=8, evaluate=eval)	
+	env = Lumberjacks(n_agents=2, n_trees=8, grid_size=5, evaluate=eval)
+	# agent = Agent(
+	# 	env_name='lumberjacks', continuous=False,
+	# 	n_agents=env.n_agents, obs_dim=env.obs_dim, action_dim=env.action_dim, state_dim=env.state_dim,
+	# 	episode_limit=50, batch_size=64, mini_batch_size=8,
+	# 	max_train_steps=1000000
+	# )
+	agent = Agent(
+		env_name='lumberjacks',
+		action_dim=env.action_dim,
+		obs_dim=env.obs_dim,
+		state_dim=env.state_dim,
+		gamma=0.99,
+		n_epochs=4,
+		batch_size=64,
+		continuous=False,
+		n_agents=env.n_agents,
+		episode_limit=50,
+		max_train_steps=n_games * 50,
+		mini_batch_size=8
+	)
+	if eval:
+		agent.load_models()
+		evaluate(agent, env)
+	else:
+		train(agent, env, n_games=n_games)
+		agent.save_models()

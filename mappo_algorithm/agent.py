@@ -262,9 +262,9 @@ class Agent:
 				# self.plotter_y.append(actor_loss.mean().item())
 
 		# learning ratge decay
-		lr_now = self.lr * (1 - total_steps / self.max_train_steps)
-		for p in self.ac_optimizer.param_groups:
-			p['lr'] = lr_now
+		# lr_now = self.lr * (1 - total_steps / self.max_train_steps)
+		# for p in self.ac_optimizer.param_groups:
+		# 	p['lr'] = lr_now
 		
 		self.buffer.reset_buffer()
 
