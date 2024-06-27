@@ -428,11 +428,12 @@ def run_experiments(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
 	n_agents_list = [2, 3, 4] + [2, 2, 2] + [2, 2, 2]
 	n_prey_list = [6, 6, 6] + [8, 8, 8] + [6, 10, 14]
 	grid_sizes_list = [4, 4, 4] + [5, 5, 5] + [4, 6, 8]
-	obs_radius_list = [1, 1, 1] + [1, 1, 2] + [1, 1, 1]
+	obs_radius_list = [1, 1, 1] + [1, 1, 1] + [1, 1, 1]
 	if single_proc:
 		for j in range(n_runs):
-			for i in range(len(exp_names_list)):
+			for i in range(6,len(exp_names_list)):
 				exp_name = exp_names_list[i]+f"_run_{j}"
+				print(exp_name)
 				run_experiment(
 					n_games=n_games, exp_dir=exp_dir, exp_name=exp_name,
 					n_agents=n_agents_list[i], n_prey=n_prey_list[i], grid_size= grid_sizes_list[i],
@@ -462,8 +463,8 @@ if __name__ == '__main__':
 	exp_out_dir = "exp_outputs/"
 	init_dir(model_dir)
 	init_dir(exp_out_dir)
-	n_games = 1000
+	n_games = 30000
 	n_runs = 1
-	single_proc = False
-	run_experiments(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)
+	single_proc = True
+	run_experiments(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=single_proc)
 
