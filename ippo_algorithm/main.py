@@ -382,7 +382,7 @@ def evaluate(agents: List[Agent], env):
 		state = state_
 
 def run_experiment(n_games, exp_dir, exp_name, n_agents, n_prey, grid_size, obs_rad):
-	env = CatMouseDiscrete(n_agents=n_agents, n_prey=n_prey, ma=True, grid_size=grid_size, observation_radius=1)
+	env = CatMouseDiscrete(n_agents=n_agents, n_prey=n_prey, ma=True, grid_size=grid_size, observation_radius=obs_rad)
 	agents = []
 	for i in range(n_agents):
 		agents.append(Agent(env_name='catmouse', n_actions=env.action_dim, input_dims=env.obs_dim, alpha= 0.0001, gamma=0.99, n_epochs=4, batch_size=128))
