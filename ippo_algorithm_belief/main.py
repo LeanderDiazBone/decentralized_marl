@@ -2,13 +2,15 @@ import time
 import os
 from typing import List
 import gym
+import copy
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from pettingzoo.mpe import simple_spread_v3
+#from pettingzoo.mpe import simple_spread_v3
 from agent import Agent
 from lumberjack_state_distribution import Lumberjacks_State_Distribution
 from multiprocessing import Process
+from multiprocessing import Pool
 
 def init_dir(dir_name):
     if not os.path.exists(dir_name):
@@ -107,8 +109,7 @@ class Lumberjacks:
 			self.belief_distr[i].reset()
 			self.belief_distr[i].update_estimation_local_observation(np.array(obs_n[i]))
 			belief_obs.append(np.concatenate((np.array([i]), obs_n[i][1:3], self.belief_distr[i].get_belief_state())))
-		# obs_n = np.array([self.get_global_obs(), self.get_global_obs()])
-		return np.array(belief_obs), None, np.array(belief_obs)#.flatten()
+		return np.array(belief_obs), None, np.array(belief_obs)
 
 	def step(self, a_n):
 		obs_next_n, r_n, done_n, info = self.env.step(a_n)
@@ -120,17 +121,17 @@ class Lumberjacks:
 		bubbles = communication_bubbles(comm_next_n)
 		for bubble in bubbles:
 			if len(bubble) > 1:
-				Lumberjacks_State_Distribution.update_estimation_communication([self.belief_distr[i] for i in bubble])
-		# if comm_next_n[0] == 2:
-		# 	dist = Lumberjacks_State_Distribution.update_estimation_communication(self.belief_distr)
-		# 	for i in range(self.n_agents):
-		# 		self.belief_distr[i] = dist
+				final_distr = Lumberjacks_State_Distribution.update_estimation_communication([self.belief_distr[i] for i in bubble])
+				for i in bubble:
+					agent_distr = copy.deepcopy(final_distr)
+					agent_distr.agent_id = i
+					self.belief_distr[i] = agent_distr
+
 		for i in range(self.n_agents):
 			belief_obs.append(np.concatenate((np.array([i]), obs_next_n[i][1:3], self.belief_distr[i].get_belief_state())))
 		if self.evaluate:
 			time.sleep(0.1)
 			self.env.render()
-		# obs_next_n = np.array([self.get_global_obs(), self.get_global_obs()])
 		obs_next_n = self.get_local_obs(self.env)
 		return np.array(belief_obs), r_n, done_n, None, info, np.array(belief_obs)#.flatten()
 
@@ -175,7 +176,7 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 	avg_score = 0
 	n_steps = 0
 
-	print_interval = 100
+	print_interval = 250
 	for episode in range(n_games):
 		dones = [False]
 		state, _, _ = env.reset()
@@ -240,32 +241,33 @@ def run_experiment_lumberjack(n_games, exp_dir, exp_name, n_agents, n_trees, gri
 	for i, agent in enumerate(agents):
 		agent.save_models(id=f"{i}{exp_name}")
 
-def run_experiments_lumberjack(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
+def run_experiments_lumberjack(exp_dir, n_games = 40000, n_runs = 3, single_proc = False, run_offset = 0):
 	exp_names_list = [f"num_agent_exp_{i}" for i in range(2, 5)] + [f"comm_rad_exp_{i}" for i in [-1, 1, 2]] + [f"env_comp_exp_{i}" for i in range(3)]
 	n_agents_list = [2, 3, 4] + [2, 2, 2] + [2, 2, 2]
 	n_trees_list = [6, 6, 6] + [8, 8, 8] + [6, 10, 14]
 	grid_sizes_list = [4, 4, 4] + [5, 5, 5] + [4, 6, 8]
-	belief_radius_list = [2, 2, 2] + [2, 2, 2] + [2, 2, 3]
+	belief_radius_list = [2, 2, 2] + [2, 2, 2] + [2, 2, 2]
 	obs_radius_list = [1, 1, 1] + [1, 1, 2] + [1, 1, 1]
 	comm_radius_list = [1, 1, 1] + [-1, 1, -2] + [1, 1, 1]
+	start = time.time()
 	if single_proc:
+		for j in range(run_offset, n_runs+run_offset):
+			for i in [0, 1, 2, 3, 5, 8]:
+			#for i in range(4, len(exp_names_list)):
+				exp_name = exp_names_list[i]+f"_run_{j}"
+				print(exp_name)
+				print("Time in Minutes:")
+				print((time.time()-start)/60)
+				run_experiment_lumberjack(n_games = n_games, exp_dir=exp_dir, exp_name=exp_name, n_agents=n_agents_list[i], n_trees=n_trees_list[i], grid_size= grid_sizes_list[i], belief_radius=belief_radius_list[i], obs_rad=obs_radius_list[i], comm_rad = comm_radius_list[i])
+	else:
+		print("Parallel Execution")
+		args = []
 		for j in range(n_runs):
 			for i in range(len(exp_names_list)):
 				exp_name = exp_names_list[i]+f"_run_{j}"
-				run_experiment_lumberjack(n_games = n_games, exp_dir=exp_dir, exp_name=exp_name, n_agents=n_agents_list[i], n_trees=n_trees_list[i], grid_size= grid_sizes_list[i], belief_radius=belief_radius_list[i], obs_rad=obs_radius_list[i], comm_rad = comm_radius_list[i])
-	else:
-		processes = []
-		for j in range(n_runs):
-			for i in range(len(exp_names_list)):
-				exp_name = exp_names_list[i]+f"run_{j}"
-				try:
-					p = Process(target=run_experiment_lumberjack, args=(n_games, exp_dir, exp_name, n_agents_list[i], n_trees_list[i],  grid_sizes_list[i], belief_radius_list[i], obs_radius_list[i], comm_radius_list[i]))
-					processes.append(p)
-					p.start()
-				except Exception: 
-					print(f"{exp_name} failed.")
-		for p in processes:
-			p.join()
+				args.append((n_games, exp_dir, exp_name, n_agents_list[i], n_trees_list[i], grid_sizes_list[i], belief_radius_list[i], obs_radius_list[i], comm_radius_list[i]))
+		pool = Pool(processes = 9)
+		pool.starmap(run_experiment_lumberjack, args, chunksize = 1)
 
 
 
@@ -274,10 +276,11 @@ if __name__ == '__main__':
 	exp_out_dir = "exp_outputs/"
 	init_dir(model_dir)
 	init_dir(exp_out_dir)
-	n_games = 40000
-	n_runs = 3
-	single_proc = False
-	run_experiments_lumberjack(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)
+	n_games = 30000
+	n_runs = 1
+	single_proc = True
+	run_offset = 0
+	run_experiments_lumberjack(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=single_proc, run_offset = run_offset)
 	"""
 	# env = gym.make('CartPole-v0')
 	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)

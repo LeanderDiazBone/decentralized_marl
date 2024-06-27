@@ -1,13 +1,14 @@
 import time
+import os
 from typing import List
 import gym
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-from pettingzoo.mpe import simple_spread_v3
 from agent import Agent
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_ma import CatMouseMA
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_discrete import CatMouseMAD
+from multiprocessing import Process
 
 
 def generate_action_space(n_actions, n_agents, l):
@@ -21,45 +22,6 @@ def generate_action_space(n_actions, n_agents, l):
 	l = generate_action_space(n_actions, n_agents-1, l)
 	return l
 
-
-class SimpleSpreadV3:
-	def __init__(self, evaluate=False):
-		N = 2
-		self.env = simple_spread_v3.parallel_env(N=N, max_cycles=25, local_ratio=0.5,
-			render_mode='human' if evaluate else None, continuous_actions=False)
-		self.env.reset(seed=42)
-		self.n_agents = self.env.num_agents
-		self.obs_dim = [self.env.observation_spaces[agent].shape[0] for agent in self.env.agents][0]
-		self.state_dim = self.obs_dim * self.n_agents
-		self.action_dim = 5 ** N
-		self.evaluate = evaluate
-		self.ACTION_SPACE = generate_action_space(5, N, [[]])
-		# env.action_dim_n = [env.action_spaces[agent].n for agent in env.agents][0]
-
-	def reset(self):
-		obs_n, info = self.env.reset()
-		obs_n = np.array([obs_n[agent] for agent in obs_n.keys()])
-		return obs_n, info, obs_n.flatten()
-
-	def step(self, a_n):
-		a_n = self.ACTION_SPACE[a_n]
-		actions = {}
-		for i, agent in enumerate(self.env.agents):
-			actions[agent] = a_n[i] if len(self.env.agents) != 1 else a_n
-		obs_next_n, r_n, done_n, trunc, info = self.env.step(actions)
-		obs_next_n = np.array([obs_next_n[agent] for agent in obs_next_n.keys()])
-		done_n = np.array([val for val in done_n.values()])
-		r_n = list(r_n.values())
-		if self.evaluate:
-			time.sleep(0.1)
-			self.env.render()
-		return np.array(obs_next_n), sum(r_n), all(done_n), trunc, info, np.array(obs_next_n).flatten()
-
-	def render(self):
-		self.env.render()
-
-	def close(self):
-		self.env.close()
 
 
 class CatMouse:
@@ -209,21 +171,57 @@ class CatMouseDiscrete:
 		self.env.close()
 
 
+
+def get_local_observations_lumber(global_observation, n_agents, n_trees, obs_rad = 1, com_rad = 1):
+	local_obs = []
+	comm = []
+	for i in range(n_agents):
+		comm.append([])
+		offset = 1
+		agent_pos = global_observation[2*i+offset:2*(i+1)+offset]
+		loc_obs = np.copy(global_observation)
+		for j in range(n_agents):
+			if abs(global_observation[2*j+offset]-agent_pos[0]) > obs_rad or abs(global_observation[2*j+1+offset]-agent_pos[1]) > obs_rad:
+				loc_obs[2*j+offset] = -1
+				loc_obs[2*j+1+offset] = -1
+			elif abs(global_observation[2*j+offset]-agent_pos[0]) <= com_rad and abs(global_observation[2*j+1+offset]-agent_pos[1]) <= com_rad:
+				comm[i].append(j)
+		offset = 2*n_agents+1
+		for j in range(n_trees):
+			if abs(global_observation[offset+3*j]-agent_pos[0]) > obs_rad or abs(global_observation[offset+3*j+1]-agent_pos[1]) > obs_rad:
+				loc_obs[offset+3*j] = -1
+				loc_obs[offset+3*j+1] = -1
+		local_obs.append(loc_obs)
+	return local_obs, comm
+
+def state_to_array_lumber(state):
+	state_list = []
+	for agent in state[0]:
+		state_list.append(agent[0]-1)
+		state_list.append(agent[1]-1)
+	for tree in state[1]:
+		state_list.append(tree[0][0]-1)
+		state_list.append(tree[0][1]-1)
+		state_list.append(tree[1])
+	return np.array(state_list)
+
+
 class Lumberjacks:
-	def __init__(self, n_agents, evaluate=False):
-		self.env = gym.make('ma_gym:Lumberjacks-v0', grid_shape=(5, 5), n_agents=n_agents, n_trees=8) #n_trees=8,
-		self.state_dim = 53 # [self.env.observation_space[agent].shape[0] for agent in range(self.env.n_agents)][0] # 75
+	def __init__(self, n_agents, n_trees, grid_size=5, observation_rad=1, evaluate=False):
+		self.env = gym.make('ma_gym:Lumberjacks-v0', grid_shape=(grid_size, grid_size), n_agents=n_agents, n_trees=n_trees)
+		self.grid_size = grid_size
+		self.obs_rad = observation_rad
+		self.state_dim = n_agents * (grid_size**2) + 3 # [self.env.observation_space[agent].shape[0] for agent in range(self.env.n_agents)][0] # 75
 		self.obs_dim = self.env.observation_space[0].shape[0]
 		self.action_dim = 5
 		self.n_agents = self.env.n_agents
 		self.env.reset()
 		self.evaluate = evaluate
-		self.ACTION_SPACE = generate_action_space(5, self.n_agents, [[]])
 
 	def reset(self):
 		obs_n = self.env.reset()
 		obs_n = np.array(obs_n)
-		obs_n = np.array([self.get_global_obs(0), self.get_global_obs(1)])
+		obs_n = np.array([self.get_global_obs(i) for i in range(self.n_agents)])
 		return obs_n, None, obs_n.flatten()
 
 	def step(self, a_n):
@@ -232,34 +230,28 @@ class Lumberjacks:
 		if self.evaluate:
 			time.sleep(0.1)
 			self.env.render()
-		obs_next_n = np.array([self.get_global_obs(0), self.get_global_obs(1)])
+		obs_next_n = np.array([self.get_global_obs(i) for i in range(self.n_agents)])
 		return obs_next_n, r_n, done_n, None, info, obs_next_n.flatten()
 
 	def get_global_obs(self, agent_id):
-		# 0 agent id
-		# 1 coords
-		# 1 coords
 		def get_value(x, y):
-			if -2 <= x <= 2 and -2 <= y <= 2:
-				return (x + 2) * 5 + (y + 2)
-		# def get_value(x, y):
-		# 	return (x + 1) * 3 + (y + 1)
+			return (x + self.obs_rad) * (2 * self.obs_rad + 1)  + (y + self.obs_rad)
 		global_env = self.env.get_global_obs()
-		glob_state = [0 for _ in range(3 + 2 * 25)]
+		glob_state = [0 for _ in range(3 + self.n_agents * (self.grid_size**2))]
 		agent_pos = global_env[0]
 		glob_state[0] = agent_id
 		glob_state[1] = agent_pos[agent_id][0] - 1
 		glob_state[2] = agent_pos[agent_id][1] - 1
 		for i, agent in enumerate(agent_pos):
 			if i != agent_id:
-				if (glob_state[1] - 2 <=agent[0] - 1 <= glob_state[1] + 2 and glob_state[2] - 2 <= agent[1] - 1 <= glob_state[2] + 2):
+				if (glob_state[1] - self.obs_rad <=agent[0] - 1 <= glob_state[1] + self.obs_rad and glob_state[2] - self.obs_rad <= agent[1] - 1 <= glob_state[2] + self.obs_rad):
 					glob_state[get_value(agent[0] - glob_state[1] - 1, agent[1] - glob_state[2] - 1) + 3] += 1
 
 		tree_pos = global_env[1]
 		for pos, strength in tree_pos:
-			if (glob_state[1] - 2 <= pos[0] - 1 <= glob_state[1] + 2 and glob_state[2] - 2 <= pos[1] - 1 <= glob_state[2] + 2):
+			if (glob_state[1] - self.obs_rad <= pos[0] - 1 <= glob_state[1] + self.obs_rad and glob_state[2] - self.obs_rad <= pos[1] - 1 <= glob_state[2] + self.obs_rad):
 				temp = get_value(pos[0] - glob_state[1] - 1, pos[1] - glob_state[2] - 1)
-				glob_state[temp + 25 + 3] = strength
+				glob_state[temp + (self.grid_size**2) + 3] = strength
 
 		return glob_state
 
@@ -268,6 +260,7 @@ class Lumberjacks:
 
 	def close(self):
 		self.env.close()
+
 
 
 def plot_learning_curve(name, episode_history, score_history):
@@ -303,13 +296,6 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 			temp = [0, 0, 0, 0, 0]
 			prev_action = 0
 			for i, agent in enumerate(agents):
-				# if i == 0:
-				# 	action, prob, val = agent.choose_action(state[i])
-				# 	prev_action = action
-				# if i == 1:
-				# 	temp[prev_action] = 1
-				# 	temp = np.concatenate([state[i], np.array(temp)])
-				# 	action, prob, val = agent.choose_action(temp)
 				action, prob, val = agent.choose_action(state[i])
 				actions.append(action)
 				probs.append(prob)
@@ -319,17 +305,12 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 			score += sum(reward)
 			for i, agent in enumerate(agents):
 				agent.remember(state[i], actions[i], probs[i], vals[i], reward[i], dones[i])
-				# if i == 0:
-				# 	agent.remember(state[i], actions[i], probs[i], vals[i], reward[i], dones[i])
-				# else :
-				# 	agent.remember(temp, actions[i], probs[i], vals[i], reward[i], dones[i])
 			if n_steps % learning_step == 0:
 				for agent in agents:
 					agent.learn()
 				learn_iters += 1
 			state = state_
 			steps += 1
-			# env.render()
 		score_history.append(score)
 		episode_history.append(n_steps)
 		avg_score = np.mean(score_history[-100:])
@@ -338,6 +319,7 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 			agent.save_models()
 		if episode % print_interval == 0:
 			print(f'episode: {episode} | avg score: {avg_score:.1f} | learning_steps: {learn_iters}')
+	return score_history
 
 
 def evaluate(agents: List[Agent], env):
@@ -348,13 +330,6 @@ def evaluate(agents: List[Agent], env):
 		temp = [0, 0, 0, 0, 0]
 		prev_action = 0
 		for i, agent in enumerate(agents):
-			# if i == 0:
-			# 	action, prob, val = agent.choose_action(state[i])
-			# 	prev_action = action
-			# if i == 1:
-			# 	temp[prev_action] = 1
-			# 	temp = np.concatenate([state[i], np.array(temp)])
-			# 	action, prob, val = agent.choose_action(temp)
 			action, prob, val = agent.choose_action(state[i])
 			actions.append(action)
 		state_, reward, dones, _, _, _ = env.step(actions)
@@ -362,36 +337,56 @@ def evaluate(agents: List[Agent], env):
 		time.sleep(0.01)
 		state = state_
 
-
-if __name__ == '__main__':
-	# env = gym.make('CartPole-v0')
-	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
-	n_agents = 2
-	eval = False
-	# env = CatMouse(evaluate=eval)
-	env = Lumberjacks(n_agents, evaluate=eval)
-	# env = SimpleSpreadV3(evaluate=eval)
+def run_experiment_lumberjack(n_games, exp_dir, exp_name, n_agents, n_trees, grid_size, obs_rad):
+	env = Lumberjacks(n_agents=n_agents, n_trees=n_trees, grid_size=grid_size, observation_rad=obs_rad)
 	agents = []
 	for i in range(n_agents):
-		agents.append(Agent(
-			env_name='lumberjacks',
-			n_actions=env.action_dim,
-			input_dims=env.state_dim, #  + (5 if i == 1 else 0)
-			alpha= 0.0001,
-			gamma=0.99,
-			n_epochs=4,
-			batch_size=128
-		))
-	if eval:
-		for i, agent in enumerate(agents):
-			agent.load_models(id=i)
-		for i in range(10):
-			evaluate(agents, env)
+		agents.append(Agent(env_name='lumberjacks', n_actions=env.action_dim, input_dims=env.state_dim, alpha= 0.0001, gamma=0.99, n_epochs=4, batch_size=128))
+	score_history = train(agents, env, n_games=n_games)
+	score_df = pd.DataFrame(score_history ,columns=["score"])
+	score_df.to_csv(f"{exp_dir}/scores_{exp_name}.csv")
+	for i, agent in enumerate(agents):
+		agent.save_models(id=f"{i}{exp_name}")
+
+
+def run_experiments_lumberjack(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
+	exp_names_list = [f"num_agent_exp_{i}" for i in range(2, 5)] + [f"env_comp_exp_{i}" for i in range(3)]
+	n_agents_list = [2, 3, 4] + [2, 2, 2]
+	n_trees_list = [6, 6, 6] + [6, 10, 14]
+	grid_sizes_list = [4, 4, 4] + [4, 6, 8]
+	obs_radius_list = [1, 1, 1] + [1, 1, 1]
+	if single_proc:
+		for j in range(n_runs):
+			for i in range(len(exp_names_list)):
+				exp_name = exp_names_list[i]+f"_run_{j}"
+				run_experiment_lumberjack(n_games = n_games, exp_dir=exp_dir, exp_name=exp_name, n_agents=n_agents_list[i], n_trees=n_trees_list[i], grid_size= grid_sizes_list[i], obs_rad=obs_radius_list[i])
 	else:
-		# for i, agent in enumerate(agents):
-		# 	agent.load_models(id=i)
-		score_history = train(agents, env, n_games=50000)
-		plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
-		for i, agent in enumerate(agents):
-			agent.save_models(id=i)
+		processes = []
+		for j in range(n_runs):
+			for i in range(len(exp_names_list)):
+				exp_name = exp_names_list[i]+f"run_{j}"
+				try:
+					p = Process(target=run_experiment_lumberjack, args=(n_games, exp_dir, exp_name, n_agents_list[i], n_trees_list[i],  grid_sizes_list[i], obs_radius_list[i]))
+					processes.append(p)
+					p.start()
+				except Exception: 
+					print(f"{exp_name} failed.")
+		for p in processes:
+			p.join()
+
+
+def init_dir(dir_name):
+	if not os.path.exists(dir_name):
+		os.makedirs(dir_name)
+
+
+if __name__ == '__main__':
+	model_dir = "checkpoints/"
+	exp_out_dir = "exp_outputs/"
+	init_dir(model_dir)
+	init_dir(exp_out_dir)
+	n_games = 30000
+	n_runs = 1
+	single_proc = True
+	run_experiments_lumberjack(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=single_proc)
 	

@@ -7,14 +7,14 @@ from torch.distributions import Categorical
 import matplotlib.pyplot as plt
 
 device = T.device('cpu')
-if T.cuda.is_available():
-	device = T.device('cuda')
-	print('using cuda')
-elif T.backends.mps.is_available():
-	device = T.device('mps')
-	print('using mps')
-else:
-	print('using cpu')
+# if T.cuda.is_available():
+# 	device = T.device('cuda')
+# 	print('using cuda')
+# elif T.backends.mps.is_available():
+# 	device = T.device('mps')
+# 	print('using mps')
+# else:
+	# print('using cpu')
 
 class PpoMemory:
 	def __init__(self, batch_size: int):
@@ -130,13 +130,13 @@ class Agent:
 	def remember(self, state, action, probs, vals, reward, done):
 		self.memory.store_memory(state, action, probs, vals, reward, done)
 
-	def save_models(self, path: str=None):
-		self.actor.save_checkpoint(f'./checkpoints/ppo_actor_{self.env_name}.pth')
-		self.critic.save_checkpoint(f'./checkpoints/ppo_critic_{self.env_name}.pth')
+	def save_models(self, id: str=None):
+		self.actor.save_checkpoint(f'./checkpoints/ppo_actor_{id}_{self.env_name}.pth')
+		self.critic.save_checkpoint(f'./checkpoints/ppo_critic_{id}_{self.env_name}.pth')
 
-	def load_models(self, path: str=None):
-		self.actor.load_checkpoint(f'./checkpoints/ppo_actor_{self.env_name}.pth')
-		self.critic.load_checkpoint(f'./checkpoints/ppo_critic_{self.env_name}.pth')
+	def load_models(self, id: str=None):
+		self.actor.load_checkpoint(f'./checkpoints/ppo_actor_{id}_{self.env_name}.pth')
+		self.critic.load_checkpoint(f'./checkpoints/ppo_critic_{id}_{self.env_name}.pth')
 
 	def choose_action(self, observation: np.array):
 		state = T.tensor(np.array(observation), dtype=T.float32).to(self.actor.device)
