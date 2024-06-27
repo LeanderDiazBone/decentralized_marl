@@ -70,7 +70,7 @@ class CatMouseMAD(gym.Env):
             "agent_pos": spaces.MultiDiscrete(2),
             "agent_id": spaces.Discrete(self.n_agents)
         }) for _ in range(self.n_agents)])
-
+        self.already_caught = np.zeros((self.n_agents,),dtype=int)
         self.reset()
 
     def get_global_obs(self) -> dict:
@@ -168,6 +168,7 @@ class CatMouseMAD(gym.Env):
         np.random.seed(seed)
         self.agent_pos = np.zeros((self.n_agents,2), dtype=int)
         self.agents = np.zeros((self.grid_size,self.grid_size), dtype=int)
+        self.already_caught = np.zeros((self.n_agents,),dtype=int)
         for i in range(self.n_agents):
             pos_x = np.random.randint(low=0, high=self.grid_size)
             pos_y = np.random.randint(low=0, high=self.grid_size)
@@ -295,7 +296,8 @@ class CatMouseMAD(gym.Env):
         :return: reward score
         """
         reward = np.full((self.n_agents,),self.step_cost)
-        reward += caught * 10 * self.n_agents
+        self.already_caught += caught
+        reward += (self.already_caught * caught) * 10 * self.n_agents
         # reward -= collision
         # for r in reward:
         #     self.normalizer.update(r) 

@@ -316,7 +316,7 @@ class Runner_MAPPO:
 
 if __name__ == '__main__':
 	# self.env = SimpleSpreadV3()
-	evaluate = False
+	evaluate = True
 	# env = CatMouse(evaluate=evaluate)
 	# env = SimpleSpreadV3(evaluate=evaluate)
 	env = Lumberjacks(evaluate=evaluate)
