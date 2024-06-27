@@ -369,7 +369,9 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 def evaluate(agents: List[Agent], env):
 	state, _, _ = env.reset()
 	dones = [False]
-	while not all(dones):
+	steps = 0
+	score = 0
+	while not all(dones) and steps < 50:
 		actions = []
 		temp = [0, 0, 0, 0, 0]
 		prev_action = 0
@@ -380,6 +382,9 @@ def evaluate(agents: List[Agent], env):
 		env.render()
 		time.sleep(0.01)
 		state = state_
+		steps += 1
+		score += sum(reward)
+	print(score)
 
 def run_experiment(n_games, exp_dir, exp_name, n_agents, n_prey, grid_size, obs_rad):
 	env = CatMouseDiscrete(n_agents=n_agents, n_prey=n_prey, ma=True, grid_size=grid_size, observation_radius=obs_rad)
@@ -424,46 +429,46 @@ def init_dir(dir_name):
 		os.makedirs(dir_name)
 
 
-if __name__ == '__main__':
-	model_dir = "checkpoints/"
-	exp_out_dir = "exp_outputs/"
-	init_dir(model_dir)
-	init_dir(exp_out_dir)
-	n_games = 1000
-	n_runs = 1
-	single_proc = False
-	run_experiments(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)
-
 # if __name__ == '__main__':
-# 	# env = gym.make('CartPole-v0')
-# 	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
-# 	n_agents = 2
-# 	eval = True
-# 	# env = CatMouse(evaluate=eval)
-# 	# env = Lumberjacks(n_agents, evaluate=eval)
-# 	env = CatMouseDiscrete(evaluate=eval, n_agents=n_agents, n_prey=6, ma=True, grid_size=5, observation_radius=1)
-# 	# env = SimpleSpreadV3(evaluate=eval)
-# 	agents = []
-# 	for i in range(n_agents):
-# 		agents.append(Agent(
-# 			env_name='catmouse',
-# 			n_actions=env.action_dim,
-# 			input_dims=env.obs_dim,
-# 			alpha= 0.0001,
-# 			gamma=0.99,
-# 			n_epochs=4,
-# 			batch_size=128
-# 		))
-# 	if eval:
-# 		for i, agent in enumerate(agents):
-# 			agent.load_models(id=i)
-# 		for i in range(10):
-# 			evaluate(agents, env)
-# 	else:
-# 		# for i, agent in enumerate(agents):
-# 		# 	agent.load_models(id=i)
-# 		score_history = train(agents, env, n_games=10000)
-# 		plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
-# 		for i, agent in enumerate(agents):
-# 			agent.save_models(id=i)
+# 	model_dir = "checkpoints/"
+# 	exp_out_dir = "exp_outputs/"
+# 	init_dir(model_dir)
+# 	init_dir(exp_out_dir)
+# 	n_games = 1000
+# 	n_runs = 1
+# 	single_proc = False
+# 	run_experiments(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)
+
+if __name__ == '__main__':
+	# env = gym.make('CartPole-v0')
+	# env = gym.make('ma_gym:Lumberjacks-v1', grid_shape=(5, 5), n_agents=2)
+	n_agents = 2
+	eval = False
+	# env = CatMouse(evaluate=eval)
+	# env = Lumberjacks(n_agents, evaluate=eval)
+	env = CatMouseDiscrete(evaluate=eval, n_agents=n_agents, n_prey=6, ma=True, grid_size=5, observation_radius=1)
+	# env = SimpleSpreadV3(evaluate=eval)
+	agents = []
+	for i in range(n_agents):
+		agents.append(Agent(
+			env_name='catmouse',
+			n_actions=env.action_dim,
+			input_dims=env.obs_dim,
+			alpha= 0.0001,
+			gamma=0.99,
+			n_epochs=4,
+			batch_size=128
+		))
+	if eval:
+		for i, agent in enumerate(agents):
+			agent.load_models(id=i)
+		for i in range(10):
+			evaluate(agents, env)
+	else:
+		# for i, agent in enumerate(agents):
+		# 	agent.load_models(id=i)
+		score_history = train(agents, env, n_games=3000)
+		plot_learning_curve('lumberjacks', [i for i in range(len(score_history))], score_history)
+		for i, agent in enumerate(agents):
+			agent.save_models(id=i)
 	

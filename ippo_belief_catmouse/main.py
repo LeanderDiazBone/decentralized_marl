@@ -227,28 +227,101 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 	return score_history
 
 
-def evaluate(agent: Agent, env):
-	_, _, observation = env.reset()
-	done = False
-	while not done:
-		action, prob, val = agent.choose_action(observation)
-		_, reward, done, _, _, observation_ = env.step(action)
+def evaluate(agents: List[Agent], env):
+	state, _, observation = env.reset()
+	done = [False]
+	score = 0
+	steps = 0
+	while not all(done) and steps < 50:
+		# action, prob, val = agent.choose_action(observation)
+		actions = []
+		for i, agent in enumerate(agents):
+			action, prob, val = agent.choose_action(state[i])
+			actions.append(action)
+		_, reward, done, _, _, observation_ = env.step(actions)
 		env.render()
 		time.sleep(0.01)
 		observation = observation_
+		score += sum(reward)
+		steps += 1
+	print(f"Score: {score}")
 
-if __name__ == '__main__':
-	
-	eval = False
-	n_agents = 2
-	n_prey = 6
-	grid_size = 5
-	observation_radius = 1
-	communication_radius = 1 
 
-	env = CatMouseDiscrete(evaluate=eval, n_agents=n_agents, n_prey=n_prey, ma=True, grid_size=grid_size, observation_radius=observation_radius, communication_radius=communication_radius)
-	n_games = 30000
+# if __name__ == '__main__':
+# 	eval = True
+# 	n_agents = 2
+# 	n_prey = 6
+# 	grid_size = 5
+# 	observation_radius = 1
+# 	communication_radius = 1
+# 	env = CatMouseDiscrete(evaluate=eval, n_agents=n_agents, n_prey=n_prey, ma=True, grid_size=grid_size, observation_radius=observation_radius, communication_radius=communication_radius)
+# 	n_games = 20000
+# 	agents = []
+# 	for i in range(n_agents):
+# 		agents.append(Agent(env_name='catmouse', n_actions=env.action_dim, input_dims=env.obs_dim, alpha= 0.0001, gamma=0.99, n_epochs=4, batch_size=128))
+# 	if eval:
+# 		for i, agent in enumerate(agents):
+# 			agent.load_models(id=i)
+# 		for i in range(10):
+# 			evaluate(agents, env)
+# 	else:
+# 		# for i, agent in enumerate(agents):
+# 		# 	agent.load_models(id=i)
+# 		score_history = train(agents, env, n_games=n_games)
+# 		for i, agent in enumerate(agents):
+# 			agent.save_models(id=i)
+
+
+def run_experiment(n_games, exp_dir, exp_name, n_agents, n_prey, grid_size, obs_rad, communication_radius):
+	env = CatMouseDiscrete(n_agents=n_agents, n_prey=n_prey, ma=True, grid_size=grid_size, observation_radius=obs_rad, communication_radius=communication_radius)
 	agents = []
 	for i in range(n_agents):
 		agents.append(Agent(env_name='catmouse', n_actions=env.action_dim, input_dims=env.obs_dim, alpha= 0.0001, gamma=0.99, n_epochs=4, batch_size=128))
 	score_history = train(agents, env, n_games=n_games)
+	score_df = pd.DataFrame(score_history ,columns=["score"])
+	score_df.to_csv(f"{exp_dir}/scores_{exp_name}.csv")
+	for i, agent in enumerate(agents):
+		agent.save_models(id=f"{i}{exp_name}")
+
+
+def run_experiments(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
+	exp_names_list = [f"num_agent_exp_{i}" for i in range(2, 5)] + [f"comm_rad_exp_{i}" for i in [-1, 1, 2]] + [f"env_comp_exp_{i}" for i in range(3)]
+	n_agents_list = [2, 3, 4] + [2, 2, 2] + [2, 2, 2]
+	n_prey_list = [6, 6, 6] + [8, 8, 8] + [6, 10, 14]
+	grid_sizes_list = [4, 4, 4] + [5, 5, 5] + [4, 6, 8]
+	obs_radius_list = [1, 1, 1] + [1, 1, 2] + [1, 1, 1]
+	comm_radius_list = [1, 1, 1] + [-1, 1, -2] + [1, 1, 1]
+	if single_proc:
+		for j in range(n_runs):
+			for i in range(len(exp_names_list)):
+				exp_name = exp_names_list[i]+f"_run_{j}"
+				run_experiment(n_games = n_games, exp_dir=exp_dir, exp_name=exp_name, n_agents=n_agents_list[i], n_prey=n_prey_list[i], grid_size= grid_sizes_list[i], obs_rad=obs_radius_list[i], communication_radius=comm_radius_list[0])
+	else:
+		processes = []
+		for j in range(n_runs):
+			for i in range(len(exp_names_list)):
+				exp_name = exp_names_list[i]+f"run_{j}"
+				try:
+					p = Process(target=run_experiment, args=(n_games, exp_dir, exp_name, n_agents_list[i], n_prey_list[i],  grid_sizes_list[i], obs_radius_list[i], comm_radius_list[i]))
+					processes.append(p)
+					p.start()
+				except Exception: 
+					print(f"{exp_name} failed.")
+		for p in processes:
+			p.join()
+
+
+def init_dir(dir_name):
+	if not os.path.exists(dir_name):
+		os.makedirs(dir_name)
+
+
+if __name__ == '__main__':
+	model_dir = "checkpoints/"
+	exp_out_dir = "exp_outputs/"
+	init_dir(model_dir)
+	init_dir(exp_out_dir)
+	n_games = 1000
+	n_runs = 1
+	single_proc = False
+	run_experiments(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)
