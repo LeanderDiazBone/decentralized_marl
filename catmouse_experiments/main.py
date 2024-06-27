@@ -372,14 +372,39 @@ def evaluate(agent: Agent, env):
 		time.sleep(0.01)
 		observation = observation_
 
-# if __name__ == '__main__':
-# 	eval = True
-# 	n_agents = 2
-# 	n_prey = 12
-# 	grid_size = 5
-# 	env = CatMouseDiscrete(evaluate=eval, n_agents=n_agents, n_prey=n_prey, ma=False, grid_size=grid_size)
-# 	# env = Lumberjacks()
-# 	n_games = 40000
+if __name__ == '__main__':
+	eval = True
+	n_agents = 2
+	n_prey = 12
+	grid_size = 5
+	env = CatMouseDiscrete(evaluate=eval, n_agents=n_agents, n_prey=n_prey, ma=False, grid_size=grid_size)
+	# env = Lumberjacks()
+	n_games = 40000
+	agent = Agent(
+		env_name='catmouse',
+		n_actions=env.action_dim,
+		n_actions_per_agent = env.n_actions_per_agent,
+		input_dims=env.state_dim,
+		alpha= 0.0003,
+		gamma=0.99,
+		n_epochs=4,
+		batch_size=128,
+		n_agents = n_agents,
+		hidden_dim = 128
+	)
+	if eval:
+		agent.load_models()
+		for _ in range(10):
+			evaluate(agent, env)
+	else:
+		# agent.load_models()
+		train(agent, env, n_games=n_games)
+		agent.save_models()
+	
+
+
+# def run_experiment(n_games, exp_dir, exp_name, n_agents, n_prey, grid_size, obs_rad):
+# 	env = CatMouseDiscrete(n_agents=n_agents, n_prey=n_prey, ma=False, grid_size=grid_size, observation_radius=obs_rad)
 # 	agent = Agent(
 # 		env_name='catmouse',
 # 		n_actions=env.action_dim,
@@ -392,10 +417,27 @@ def evaluate(agent: Agent, env):
 # 		n_agents = n_agents,
 # 		hidden_dim = 128
 # 	)
-# 	if eval:
-# 		agent.load_models()
-# 		for _ in range(10):
-# 			evaluate(agent, env)
+# 	score_history = train(agent, env, n_games=n_games)
+# 	score_df = pd.DataFrame(score_history ,columns=["score"])
+# 	score_df.to_csv(f"{exp_dir}/scores_{exp_name}.csv")
+# 	agent.save_models(id=f"{exp_name}")
+
+
+# def run_experiments(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
+# 	exp_names_list = [f"num_agent_exp_{i}" for i in range(2, 5)] + [f"comm_rad_exp_{i}" for i in [-1, 1, 2]] + [f"env_comp_exp_{i}" for i in range(3)]
+# 	n_agents_list = [2, 3, 4] + [2, 2, 2] + [2, 2, 2]
+# 	n_prey_list = [6, 6, 6] + [8, 8, 8] + [6, 10, 14]
+# 	grid_sizes_list = [4, 4, 4] + [5, 5, 5] + [4, 6, 8]
+# 	obs_radius_list = [1, 1, 1] + [1, 1, 2] + [1, 1, 1]
+# 	if single_proc:
+# 		for j in range(n_runs):
+# 			for i in range(len(exp_names_list)):
+# 				exp_name = exp_names_list[i]+f"_run_{j}"
+# 				run_experiment(
+# 					n_games=n_games, exp_dir=exp_dir, exp_name=exp_name,
+# 					n_agents=n_agents_list[i], n_prey=n_prey_list[i], grid_size= grid_sizes_list[i],
+# 					obs_rad=obs_radius_list[i]
+# 				)
 # 	else:
 # 		# agent.load_models()
 # 		train(agent, env, n_games=n_games)
@@ -454,9 +496,9 @@ def run_experiments(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
 			p.join()
 
 
-def init_dir(dir_name):
-	if not os.path.exists(dir_name):
-		os.makedirs(dir_name)
+# def init_dir(dir_name):
+# 	if not os.path.exists(dir_name):
+# 		os.makedirs(dir_name)
 
 if __name__ == '__main__':
 	model_dir = "checkpoints/"
