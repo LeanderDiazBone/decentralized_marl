@@ -21,7 +21,6 @@ class CatMouse(gym.Env):
         self.window = None
         self.clock = None
         self.steps = 0
-
         # standard gymnasium specifications
         self.action_space = spaces.Box(low=0, high=1, shape=(self.n_agents,), dtype=np.float32)
         self.observation_space = spaces.Dict({
@@ -57,6 +56,8 @@ class CatMouse(gym.Env):
         next_state = None
         reward = 0
         terminated = False
+
+        self.caught_in_step = 0
 
         # move each agent according to action array
         self._move_agents(action)
@@ -120,6 +121,7 @@ class CatMouse(gym.Env):
                 for j in range(self.n_agents):
                     if self.agent_prey_caught[j][i]:
                         self.prey["caught"][i] = 1
+                        self.caught_in_step += 1
                         break
     
     def _calc_reward(self):
@@ -134,6 +136,8 @@ class CatMouse(gym.Env):
                 if not self.prey["caught"][j]:
                     min_dist = min(min_dist, self.agent_prey_dists[i][j])
             reward -= min_dist
+
+        reward += self.caught_in_step * 2
         return reward
 
     def _move_agents(self, action):
@@ -154,17 +158,16 @@ class CatMouse(gym.Env):
         Moves prey's positions according to their specified behavior
         """
         # assume uniform random movement of prey
-        pass
-        # for i in range(self.n_prey):
-        #     cur_x, cur_y = self.prey["position"][i][0], self.prey["position"][i][1]
-        #     if self.prey["caught"][i]:
-        #         continue
-        #     direction = 2 * np.pi * np.random.uniform()
-        #     move_x = self.step_size * math.cos(direction)
-        #     move_y = self.step_size * math.sin(direction)
+        for i in range(self.n_prey):
+            cur_x, cur_y = self.prey["position"][i][0], self.prey["position"][i][1]
+            if self.prey["caught"][i]:
+                continue
+            direction = 2 * np.pi * np.random.uniform()
+            move_x = self.step_size * math.cos(direction)
+            move_y = self.step_size * math.sin(direction)
             
-        #     self.prey["position"][i][0] = min(max(0,cur_x + move_x),1)
-        #     self.prey["position"][i][1] = max(min(1,cur_y + move_y),0)
+            self.prey["position"][i][0] = min(max(0,cur_x + move_x),1)
+            self.prey["position"][i][1] = max(min(1,cur_y + move_y),0)
 
     def render(self):
         self._render_frame()
