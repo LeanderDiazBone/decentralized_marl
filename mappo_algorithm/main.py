@@ -8,46 +8,9 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from normalization import Normalization
 from agent import Agent
-from pettingzoo.mpe import simple_spread_v3
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_ma import CatMouseMA
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_discrete import CatMouseMAD
 
-
-class SimpleSpreadV3:
-	def __init__(self, evaluate=False):
-		self.env = simple_spread_v3.parallel_env(N=3, max_cycles=25, local_ratio=0.5,
-			render_mode='human' if evaluate else None, continuous_actions=False)
-		self.env.reset(seed=42)
-		self.n_agents = self.env.num_agents
-		self.obs_dim = [self.env.observation_spaces[agent].shape[0] for agent in self.env.agents][0]
-		self.state_dim = self.obs_dim * self.n_agents
-		self.action_dim = 5
-		self.evaluate = evaluate
-		# env.action_dim_n = [env.action_spaces[agent].n for agent in env.agents][0]
-
-	def reset(self):
-		obs_n, info = self.env.reset()
-		obs_n = np.array([obs_n[agent] for agent in obs_n.keys()])
-		return obs_n, info, obs_n.flatten()
-
-	def step(self, a_n):
-		actions = {}
-		for i, agent in enumerate(self.env.agents):
-			actions[agent] = a_n[i]
-		obs_next_n, r_n, done_n, trunc, info = self.env.step(actions)
-		obs_next_n = np.array([obs_next_n[agent] for agent in obs_next_n.keys()])
-		done_n = np.array([val for val in done_n.values()])
-		r_n = list(r_n.values())
-		if self.evaluate:
-			time.sleep(0.1)
-			self.env.render()
-		return obs_next_n, r_n, done_n, trunc, info, np.array(obs_next_n).flatten()
-
-	def render(self):
-		self.env.render()
-
-	def close(self):
-		self.env.close()
 
 
 class CatMouse:
@@ -322,29 +285,17 @@ def run_experiment(n_games, exp_dir, exp_name, n_agents, n_prey, grid_size, obs_
 
 
 def run_experiments(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
-	exp_names_list = [f"num_agent_exp_{i}" for i in range(2, 5)] + [f"comm_rad_exp_{i}" for i in [-1, 1, 2]] + [f"env_comp_exp_{i}" for i in range(3)]
-	n_agents_list = [2, 3, 4] + [2, 2, 2] + [2, 2, 2]
-	n_prey_list = [6, 6, 6] + [8, 8, 8] + [6, 10, 14]
-	grid_sizes_list = [4, 4, 4] + [5, 5, 5] + [4, 6, 8]
-	obs_radius_list = [1, 1, 1] + [1, 1, 2] + [1, 1, 1]
+	exp_names_list = [f"num_agent_exp_{i}" for i in range(2, 5)]  + [f"env_comp_exp_{i}" for i in range(3)] #+ [f"comm_rad_exp_{i}" for i in [-1, 1, 2]]
+	n_agents_list = [2, 3, 4]  + [2, 2, 2] #+ [2, 2, 2]
+	n_prey_list = [6, 6, 6]  + [6, 10, 14] # + [8, 8, 8]
+	grid_sizes_list = [4, 4, 4]  + [4, 6, 8] #+ [5, 5, 5]
+	obs_radius_list = [1, 1, 1]  + [1, 1, 1] #+ [1, 1, 2]
 	if single_proc:
 		for j in range(n_runs):
 			for i in range(len(exp_names_list)):
 				exp_name = exp_names_list[i]+f"_run_{j}"
 				run_experiment(n_games=n_games, exp_dir=exp_dir, exp_name=exp_name, n_agents=n_agents_list[i], n_prey=n_prey_list[i], grid_size= grid_sizes_list[i], obs_rad=obs_radius_list[i])
-	else:
-		processes = []
-		for j in range(n_runs):
-			for i in range(len(exp_names_list)):
-				exp_name = exp_names_list[i]+f"run_{j}"
-				try:
-					p = Process(target=run_experiment, args=(n_games, exp_dir, exp_name, n_agents_list[i], n_prey_list[i],  grid_sizes_list[i], obs_radius_list[i]))
-					processes.append(p)
-					p.start()
-				except Exception: 
-					print(f"{exp_name} failed.")
-		for p in processes:
-			p.join()
+
 
 
 def init_dir(dir_name):
@@ -358,7 +309,7 @@ if __name__ == '__main__':
 	init_dir(exp_out_dir)
 	n_games = 30000
 	n_runs = 1
-	single_proc = False
+	single_proc = True
 	run_experiments(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=single_proc)
 
 
