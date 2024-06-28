@@ -5,6 +5,7 @@ import numpy as np
 import math
 import pygame
 import copy
+import random
 
 class RewardNormalizer:
 
@@ -79,7 +80,7 @@ class CatMouseMAD(gym.Env):
         :return: Dictionary containing agent positions and prey positions/caught status.
         """
         # lumberjack state
-        observation_range = 1
+        observation_range = self.observation_radius
         agent_grid = np.zeros((self.n_agents, 2 * observation_range + 1, 2 * observation_range + 1))
         prey_grid = np.zeros((self.n_agents, 2 * observation_range + 1, 2 * observation_range + 1))
         for agent_id in range(self.n_agents):
@@ -97,11 +98,22 @@ class CatMouseMAD(gym.Env):
 
         return {"grids": {"agents": agent_grid, "prey": prey_grid}, "agent_pos": agent_pos_norm}
 
+        # state for local belief algo
+        # agent_pos_norm = np.copy(self.agent_pos)
+        # for i in range(self.n_agents):
+        #     agent_pos_norm[i][0] /= self.grid_size
+        #     agent_pos_norm[i][1] /= self.grid_size
+        # prey_pos_norm = np.copy(self.prey_pos)
+        # for i in range(self.n_prey):
+        #     prey_pos_norm[i][0] /= self.grid_size
+        #     prey_pos_norm[i][1] /= self.grid_size
+        # return {"agents": agent_pos_norm, "prey": prey_pos_norm}
+
         # one grid per agent (one-hot) and prey grid as global obs
-        # agent_grids = np.zeros((self.n_agents, self.grid_size,self.grid_size))
-        # for i,pos in enumerate(self.agent_pos):
-        #     agent_grids[i][pos[0]][pos[1]] = 1
-        # return {"grids": {"agents": agent_grids, "prey": self.prey}, "agent_pos": self.agent_pos}
+        agent_grids = np.zeros((self.n_agents, self.grid_size,self.grid_size))
+        for i,pos in enumerate(self.agent_pos):
+            agent_grids[i][pos[0]][pos[1]] = 1
+        return {"grids": {"agents": agent_grids, "prey": self.prey}, "agent_pos": self.agent_pos}
     
         # env state as global obs
         agents_norm = np.copy(self.agents)
@@ -150,8 +162,9 @@ class CatMouseMAD(gym.Env):
         return agent_obs, info
     
     def _get_window(self, cur_pos):
-        window_agents = np.zeros((self.grid_size,self.grid_size), dtype=int)
-        window_prey = np.zeros((self.grid_size,self.grid_size), dtype=int)
+        window_size = 2 * self.observation_radius + 1
+        window_agents = np.zeros((window_size,window_size), dtype=int)
+        window_prey = np.zeros((window_size,window_size), dtype=int)
         start = cur_pos - self.observation_radius
         end = cur_pos + self.observation_radius
         for wi, i in enumerate(range(start[0],end[0]+1)):
@@ -174,11 +187,12 @@ class CatMouseMAD(gym.Env):
             self.agent_pos[i] = np.array([pos_x, pos_y])
 
         self.prey = np.zeros((self.grid_size,self.grid_size), dtype=int)
-        for _ in range(self.n_prey):
+        self.prey_pos = np.zeros((self.n_prey,3), dtype=int)
+        for i in range(self.n_prey):
             pos_x = np.random.randint(low=0, high=self.grid_size)
             pos_y = np.random.randint(low=0, high=self.grid_size)
             self.prey[pos_x][pos_y] += 1
-            
+            self.prey_pos[i] = np.array([pos_x, pos_y, 0])
         return self._get_obs()
 
     def step(self, action: list) -> tuple:
@@ -189,12 +203,12 @@ class CatMouseMAD(gym.Env):
         next_state = None
         reward = []
         terminated = False
-
-        # move each agent according to action array
-        collision = self._move_agents(action)
+        
         # assume uniform random movement of mouse rn, move each mouse
         self._move_prey()
-
+        # move each agent according to action array
+        collision = self._move_agents(action)
+        
         caught = self._check_caught()
 
         next_state, info = self._get_obs()
@@ -238,24 +252,68 @@ class CatMouseMAD(gym.Env):
             for j in range(self.grid_size):
                 if self.prey[i][j] > 0:
                     found = False
-                    for ring in range(1, self.grid_size): # scan rings around prey
-                        for x in range(-ring, ring+1):
-                            for y in range(-ring, ring+1):
-                                if x==0 or y == 0:
-                                    continue
-                                if 0 <= i + x < self.grid_size and 0 <= j + y < self.grid_size:
-                                    if self.agents[i+x][j+y] > 0:
-                                        move_x = int(x / abs(x))
-                                        move_y = int(y / abs(y))
-                                        if 0 <= i - move_x < self.grid_size and 0 <= j - move_y < self.grid_size:
-                                            prey_new[i-move_x][j-move_y] += self.prey[i][j]
-                                            found = True
-                                            break
+                    for x in range(-self.observation_radius,self.observation_radius+1):
+                        for y in range(-self.observation_radius,self.observation_radius+1):
+                            if x == 0 and y == 0:
+                                continue
+                            if 0 <= i + x < self.grid_size and 0 <= j + y < self.grid_size:
+                                if self.agents[i+x][j+y] > 0:
+                                    # run away
+                                    new_pos = [i,j]
+                                    if 0 <= i - x < self.grid_size and 0 <= j - y < self.grid_size:
+                                        prey_new[i-x][j-y] += self.prey[i][j]
+                                        new_pos = [i-x,j-y]
+                                    else:
+                                        # corner case
+                                        if (i - x >= self.grid_size or i - x < 0) and (j-y >= self.grid_size or j-y < 0):
+                                            prey_new[i][j] += self.prey[i][j]
+                                        elif i - x >= self.grid_size or i - x < 0:
+                                            if y == 0:
+                                                if 0 <= j - 1 < self.grid_size:
+                                                    prey_new[i][j-1] += self.prey[i][j]
+                                                    new_pos = [i,j-1]
+                                                else:
+                                                    prey_new[i][j+1] += self.prey[i][j]
+                                                    new_pos = [i,j+1]
+                                            else:
+                                                prey_new[i][j-y] += self.prey[i][j]
+                                                new_pos = [i,j-y]
+                                        elif j - y >= self.grid_size or j - y < 0:
+                                            if x == 0:
+                                                if 0 <= i - 1 < self.grid_size:
+                                                    prey_new[i-1][j] += self.prey[i-1][j]
+                                                    new_pos = [i-1,j]
+                                                else:
+                                                    prey_new[i+1][j] += self.prey[i+1][j]
+                                                    new_pos = [i+1,j]
+                                            else:
+                                                prey_new[i-x][j] += self.prey[i][j]
+                                                new_pos = [i-x,j]
+
+                                    found = True
+                                    break
                             if found:
                                 break
                         if found:
                             break
+                    # if not in vicinity of cat, either random movement or stays still
+                    if not found:
+                        sample = random.randint(0,8)
+                        dir = ACTION_LIST[sample]
+                        if 0 <= i + dir[0] < self.grid_size and 0 <= j + dir[1] < self.grid_size:
+                            prey_new[i+dir[0]][j+dir[1]] += self.prey[i][j]
+                            new_pos = [i+dir[0],j+dir[1]]
+                        else:
+                            prey_new[i][j] += self.prey[i][j]
+                            new_pos = [i,j]
+
+                    for prey_p in self.prey_pos:
+                        if i == prey_p[0] and j == prey_p[1]:
+                            prey_p[0] = new_pos[0]
+                            prey_p[1] = new_pos[1]
+
         self.prey = prey_new
+        
 
     def _check_caught(self):
         """
@@ -269,6 +327,9 @@ class CatMouseMAD(gym.Env):
                     for a,p in enumerate(self.agent_pos):
                         if p[0] == i and p[1] == j:
                             caught[a] += self.prey[i][j]
+                    for prey_p in self.prey_pos:
+                        if prey_p[0] == i and prey_p[1] == j:
+                            prey_p[2] = 1
                     self.prey[i][j] = 0
         return caught
     
