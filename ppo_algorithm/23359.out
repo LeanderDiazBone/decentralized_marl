@@ -1,0 +1,231 @@
+Running on host: studgpu-node01.inf.ethz.ch
+In directory: /cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm
+Starting on: Fri Jun 28 16:33:32 CEST 2024
+SLURM_JOB_ID: 23359
+using cuda
+Process Process-9:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/main.py", line 382, in run_experiment_lumberjack
+    agent = Agent(
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 161, in __init__
+    self.actor = ActorNetwork(n_actions, n_actions_per_agent, input_dims, alpha, hidden_dim = hidden_dim)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 91, in __init__
+    self.to(self.device)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/cuda/__init__.py", line 288, in _lazy_init
+    raise RuntimeError(
+RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+Process Process-2:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/main.py", line 382, in run_experiment_lumberjack
+    agent = Agent(
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 161, in __init__
+    self.actor = ActorNetwork(n_actions, n_actions_per_agent, input_dims, alpha, hidden_dim = hidden_dim)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 91, in __init__
+    self.to(self.device)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/cuda/__init__.py", line 288, in _lazy_init
+    raise RuntimeError(
+RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+Process Process-8:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/main.py", line 382, in run_experiment_lumberjack
+    agent = Agent(
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 161, in __init__
+    self.actor = ActorNetwork(n_actions, n_actions_per_agent, input_dims, alpha, hidden_dim = hidden_dim)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 91, in __init__
+    self.to(self.device)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/cuda/__init__.py", line 288, in _lazy_init
+    raise RuntimeError(
+RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+Process Process-5:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/main.py", line 382, in run_experiment_lumberjack
+    agent = Agent(
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 161, in __init__
+    self.actor = ActorNetwork(n_actions, n_actions_per_agent, input_dims, alpha, hidden_dim = hidden_dim)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 91, in __init__
+    self.to(self.device)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/cuda/__init__.py", line 288, in _lazy_init
+    raise RuntimeError(
+RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+Process Process-3:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/main.py", line 382, in run_experiment_lumberjack
+    agent = Agent(
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 161, in __init__
+    self.actor = ActorNetwork(n_actions, n_actions_per_agent, input_dims, alpha, hidden_dim = hidden_dim)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 91, in __init__
+    self.to(self.device)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/cuda/__init__.py", line 288, in _lazy_init
+    raise RuntimeError(
+RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+Process Process-6:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/main.py", line 382, in run_experiment_lumberjack
+    agent = Agent(
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 161, in __init__
+    self.actor = ActorNetwork(n_actions, n_actions_per_agent, input_dims, alpha, hidden_dim = hidden_dim)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 91, in __init__
+    self.to(self.device)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/cuda/__init__.py", line 288, in _lazy_init
+    raise RuntimeError(
+RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+Process Process-4:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/main.py", line 382, in run_experiment_lumberjack
+    agent = Agent(
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 161, in __init__
+    self.actor = ActorNetwork(n_actions, n_actions_per_agent, input_dims, alpha, hidden_dim = hidden_dim)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 91, in __init__
+    self.to(self.device)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/cuda/__init__.py", line 288, in _lazy_init
+    raise RuntimeError(
+RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+Process Process-1:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/main.py", line 382, in run_experiment_lumberjack
+    agent = Agent(
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 161, in __init__
+    self.actor = ActorNetwork(n_actions, n_actions_per_agent, input_dims, alpha, hidden_dim = hidden_dim)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 91, in __init__
+    self.to(self.device)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/cuda/__init__.py", line 288, in _lazy_init
+    raise RuntimeError(
+RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+Process Process-7:
+Traceback (most recent call last):
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 314, in _bootstrap
+    self.run()
+  File "/usr/lib/python3.10/multiprocessing/process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/main.py", line 382, in run_experiment_lumberjack
+    agent = Agent(
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 161, in __init__
+    self.actor = ActorNetwork(n_actions, n_actions_per_agent, input_dims, alpha, hidden_dim = hidden_dim)
+  File "/cluster/courses/3dv/data/team-25/decentralized_marl/ppo_algorithm/agent.py", line 91, in __init__
+    self.to(self.device)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1152, in to
+    return self._apply(convert)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 802, in _apply
+    module._apply(fn)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 825, in _apply
+    param_applied = fn(param)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/nn/modules/module.py", line 1150, in convert
+    return t.to(device, dtype if t.is_floating_point() or t.is_complex() else None, non_blocking)
+  File "/cluster/courses/3dv/data/team-25/marl_env/marl/lib/python3.10/site-packages/torch/cuda/__init__.py", line 288, in _lazy_init
+    raise RuntimeError(
+RuntimeError: Cannot re-initialize CUDA in forked subprocess. To use CUDA with multiprocessing, you must use the 'spawn' start method
+finished at: Fri Jun 28 16:33:39 CEST 2024
