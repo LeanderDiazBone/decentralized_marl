@@ -73,6 +73,18 @@ class CatMouseMAD(gym.Env):
 
         self.reset()
 
+    def get_obs_belief(self):
+        # state for local belief algo
+        agent_pos_norm = np.copy(self.agent_pos)
+        """for i in range(self.n_agents):
+            agent_pos_norm[i][0] /= self.grid_size
+            agent_pos_norm[i][1] /= self.grid_size"""
+        prey_pos_norm = np.copy(self.prey_pos)
+        """for i in range(self.n_prey):
+            prey_pos_norm[i][0] /= self.grid_size
+            prey_pos_norm[i][1] /= self.grid_size"""
+        return {"agents": agent_pos_norm, "prey": prey_pos_norm}
+
     def get_global_obs(self) -> dict:
         """
         Returns the global state of the environment.
@@ -98,16 +110,7 @@ class CatMouseMAD(gym.Env):
 
         return {"grids": {"agents": agent_grid, "prey": prey_grid}, "agent_pos": agent_pos_norm}
 
-        # state for local belief algo
-        # agent_pos_norm = np.copy(self.agent_pos)
-        # for i in range(self.n_agents):
-        #     agent_pos_norm[i][0] /= self.grid_size
-        #     agent_pos_norm[i][1] /= self.grid_size
-        # prey_pos_norm = np.copy(self.prey_pos)
-        # for i in range(self.n_prey):
-        #     prey_pos_norm[i][0] /= self.grid_size
-        #     prey_pos_norm[i][1] /= self.grid_size
-        # return {"agents": agent_pos_norm, "prey": prey_pos_norm}
+        
 
         # one grid per agent (one-hot) and prey grid as global obs
         agent_grids = np.zeros((self.n_agents, self.grid_size,self.grid_size))

@@ -5,7 +5,9 @@ import gym
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+import sys
 from agent import Agent
+sys.path.append("..")
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_ma import CatMouseMA
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_discrete import CatMouseMAD
 from multiprocessing import Process

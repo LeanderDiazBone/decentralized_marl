@@ -8,6 +8,7 @@ import os
 import pandas as pd
 from agent import Agent
 import torch as T
+sys.path.append("..")
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse import CatMouse
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_ma import CatMouseMA
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_discrete import CatMouseMAD

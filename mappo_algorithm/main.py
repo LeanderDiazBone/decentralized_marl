@@ -3,15 +3,15 @@ import gym
 import torch
 import numpy as np
 import os
+import sys
 from multiprocessing import Process
 import matplotlib.pyplot as plt
 import pandas as pd
 from normalization import Normalization
 from agent import Agent
+sys.path.append("..")
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_ma import CatMouseMA
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_discrete import CatMouseMAD
-
-
 
 class CatMouse:
 	@staticmethod

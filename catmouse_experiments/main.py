@@ -8,6 +8,7 @@ import os
 import pandas as pd
 from agent import Agent
 import torch as T
+sys.path.append("../")
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse import CatMouse
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_ma import CatMouseMA
 from marl_gym.marl_gym.envs.cat_mouse.cat_mouse_discrete import CatMouseMAD
@@ -371,7 +372,7 @@ def evaluate(agent: Agent, env):
 		env.render()
 		time.sleep(0.01)
 		observation = observation_
-
+"""
 if __name__ == '__main__':
 	eval = True
 	n_agents = 2
@@ -400,7 +401,7 @@ if __name__ == '__main__':
 		# agent.load_models()
 		train(agent, env, n_games=n_games)
 		agent.save_models()
-	
+"""
 
 
 # def run_experiment(n_games, exp_dir, exp_name, n_agents, n_prey, grid_size, obs_rad):
@@ -496,9 +497,9 @@ def run_experiments(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
 			p.join()
 
 
-# def init_dir(dir_name):
-# 	if not os.path.exists(dir_name):
-# 		os.makedirs(dir_name)
+def init_dir(dir_name):
+	if not os.path.exists(dir_name):
+		os.makedirs(dir_name)
 
 if __name__ == '__main__':
 	model_dir = "checkpoints/"
