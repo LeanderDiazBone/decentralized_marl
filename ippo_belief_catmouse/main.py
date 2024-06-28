@@ -47,7 +47,20 @@ def communication_bubbles(comm):
             bubbles.append(list(new_bubble))
     return bubbles
 
+def transpose_obs_local(global_obs, n_agents, n_mice):
+	for i in range(n_agents):
+		x = global_obs[2*i]
+		global_obs[2*i] = global_obs[2*i+1]
+		global_obs[2*i+1] = x
+	offset = 2*n_agents
+	for i in range(n_mice):
+		x = global_obs[offset+3*i]
+		global_obs[offset+3*i] = global_obs[offset+3*i+1]
+		global_obs[offset+3*i+1] = x
+	return global_obs
+
 def get_local_observations_catmouse(global_observation, n_agents, n_mice, obs_rad = 1, com_rad = 1):
+	global_observation = transpose_obs_local(global_observation, n_agents, n_mice)
 	local_obs = []
 	comm = []
 	for i in range(n_agents):
@@ -61,12 +74,13 @@ def get_local_observations_catmouse(global_observation, n_agents, n_mice, obs_ra
 				loc_obs[2*j+1+offset] = -1
 			elif abs(global_observation[2*j+offset]-agent_pos[0]) <= com_rad and abs(global_observation[2*j+1+offset]-agent_pos[1]) <= com_rad:
 				comm[i].append(j)
-		offset = 2*n_agents+1
+		offset = 2*n_agents
 		for j in range(n_mice):
 			if abs(global_observation[offset+3*j]-agent_pos[0]) > obs_rad or abs(global_observation[offset+3*j+1]-agent_pos[1]) > obs_rad:
 				loc_obs[offset+3*j] = -1
 				loc_obs[offset+3*j+1] = -1
 		local_obs.append(loc_obs)
+	#print(local_obs)
 	return local_obs, comm
 
 class CatMouseDiscrete:
@@ -156,6 +170,7 @@ class CatMouseDiscrete:
 		belief_obs = []
 		for i in range(self.n_agents):
 			self.belief_distr[i].update_estimation_local_observation(np.array(obs_next_n[i]))
+		
 		bubbles = communication_bubbles(comm_next_n)
 		for bubble in bubbles:
 			if len(bubble) > 1:
@@ -172,8 +187,11 @@ class CatMouseDiscrete:
 			r_n = sum(r_n)
 
 		if self.evaluate:
-			time.sleep(0.1)
+			#print(self.env.get_obs_belief())
+			#print(belief_obs[0])
+			#print(belief_obs[1])
 			self.env.render()
+			time.sleep(0.5)
 		return np.array(belief_obs), r_n, [done_n for _ in range(self.n_agents)], trunc, info, self.trans_state_discrete(self.env.get_global_obs())
 
 	def render(self):
@@ -214,7 +232,7 @@ def train(agents: List[Agent], env, n_games=10000, best_score=-100, learning_ste
 			if n_steps % learning_step == 0:
 				for agent in agents:
 					agent.learn()
-				learn_iters += 1
+				learn_iters += 1 
 			state = state_
 			steps += 1
 		score_history.append(score)
@@ -290,8 +308,8 @@ def run_experiments(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
 	n_agents_list = [2, 3, 4] + [2, 2, 2] + [2, 2, 2]
 	n_prey_list = [6, 6, 6] + [8, 8, 8] + [6, 10, 14]
 	grid_sizes_list = [4, 4, 4] + [5, 5, 5] + [4, 6, 8]
-	obs_radius_list = [1, 1, 1] + [1, 1, 2] + [1, 1, 1]
-	comm_radius_list = [1, 1, 1] + [-1, 1, -2] + [1, 1, 1]
+	obs_radius_list = [1, 1, 1] + [1, 1, 1] + [1, 1, 1]
+	comm_radius_list = [1, 1, 1] + [-1, 1, 2] + [1, 1, 1]
 	if single_proc:
 		for j in range(n_runs):
 			for i in range(len(exp_names_list)):
@@ -317,6 +335,32 @@ def init_dir(dir_name):
 		os.makedirs(dir_name)
 
 
+
+if __name__ == '__main__':
+	eval = False
+	n_agents = 2
+	n_prey = 2
+	grid_size = 4
+	n_games = 30000
+	obs_rad = 1
+	communication_radius = 1
+	#env = CatMouseDiscrete(evaluate=eval, n_agents=n_agents, n_prey=n_prey, ma=False, grid_size=grid_size)
+	env = CatMouseDiscrete(n_agents=n_agents, n_prey=n_prey, ma=True, grid_size=grid_size, observation_radius=obs_rad, communication_radius=communication_radius, evaluate=eval)
+	agents = []
+	for i in range(n_agents):
+		agents.append(Agent(env_name='catmouse', n_actions=env.action_dim, input_dims=env.obs_dim, alpha= 0.0001, gamma=0.99, n_epochs=4, batch_size=128))
+	score_history = train(agents, env, n_games=n_games)
+	# env = Lumberjacks()
+	
+	if eval:
+		for _ in range(10):
+			evaluate(agent, env)
+	else:
+		# agent.load_models()
+		train(agent, env, n_games=n_games)
+		agent.save_models()
+
+"""
 if __name__ == '__main__':
 	model_dir = "checkpoints/"
 	exp_out_dir = "exp_outputs/"
@@ -326,3 +370,4 @@ if __name__ == '__main__':
 	n_runs = 1
 	single_proc = False
 	run_experiments(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=True)
+"""

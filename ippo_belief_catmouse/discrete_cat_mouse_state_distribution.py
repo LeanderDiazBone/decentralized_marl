@@ -17,7 +17,6 @@ class Discrete_CatMouse_State_Distribution:
         self.caught_mice = set()
         self.agent_pos_distribution = np.ones((n_agents, grid_size, grid_size))/(grid_size**2)
         self.mice_pos_distribution = np.ones((n_mice, grid_size, grid_size))/(grid_size**2)
-        
     
     def reset(self):
         self.agent_pos_distribution = np.ones((self.n_agents, self.grid_size, self.grid_size))/(self.grid_size**2)
@@ -32,10 +31,14 @@ class Discrete_CatMouse_State_Distribution:
             for j in its:
                 if agent_pos[0]+i >= 0 and agent_pos[0]+i < self.grid_size and agent_pos[1]+j >= 0 and agent_pos[1]+j < self.grid_size:
                     view[int(agent_pos[0])+i][int(agent_pos[1])+j] = 0
+        #print("View")
+        #print(view)
         return view
     
     def random_walk_update(self, distribution):
         # Assumption is 9 actions equally likely
+        #print("Walk")
+        #print(distribution)
         new_distr = np.zeros((self.grid_size, self.grid_size))
         for i in range(self.grid_size):
             for j in range(self.grid_size):
@@ -61,12 +64,13 @@ class Discrete_CatMouse_State_Distribution:
                     new_distr[i][j-1] += trans_prob * distribution[i][j] # left
                 if j < self.grid_size-1:
                     new_distr[i][j+1] += trans_prob * distribution[i][j]  # right
+        #print(new_distr)
         return new_distr
 
 
     def update_estimation_local_observation(self, loc_obs):
         self.env_step = loc_obs[0]
-        agents = loc_obs[:self.n_agents*2+1].astype('int')
+        agents = loc_obs[:self.n_agents*2].astype('int')
         mice = loc_obs[self.n_agents*2:].astype('int')
         view = self.get_view(agents[2*self.agent_id:2*(self.agent_id+1)])
 
@@ -81,12 +85,19 @@ class Discrete_CatMouse_State_Distribution:
                     print("error")
                 distr = self.random_walk_update(self.agent_pos_distribution[i])
                 distr = distr*view
-                distr /= np.sum(distr)
+                if np.sum(distr) > 0:
+                    distr /= np.sum(distr)
+                else:
+                    print("Issue in Agent division")
                 self.agent_pos_distribution[i] = distr
+
         for i in range(self.n_mice):
             mouse = mice[3*i:3*(i+1)]
+            #print(mouse)
             if mouse[2] == 1 or i in self.caught_mice: #(Caught)
                 self.caught_mice.add(i)
+                distr = np.zeros((self.grid_size, self.grid_size))
+                self.mice_pos_distribution[i] = distr
             else:
                 if mouse[0] != -1:
                     distr = np.zeros((self.grid_size, self.grid_size))
@@ -95,14 +106,17 @@ class Discrete_CatMouse_State_Distribution:
                 else:
                     distr = self.random_walk_update(self.mice_pos_distribution[i])
                     distr = distr*view
-                    distr /= np.sum(distr)
-                    self.agent_pos_distribution[i] = distr
+                    if np.sum(distr) > 0:
+                        distr /= np.sum(distr)
+                    else:
+                        print("Issue in Mouse division")
+                        #self.caught_mice.add(i)
+                    self.mice_pos_distribution[i] = distr
 
     def get_belief_state(self):
         mice_state = np.sum(self.mice_pos_distribution, axis=0)
         mice_state_centralized = np.zeros((2*self.grid_size-1, 2*self.grid_size-1))
         agent_state_centralized = np.zeros((self.n_agents, 2*self.grid_size-1, 2*self.grid_size-1))
-        #print(self.agent_pos_distribution[self.agent_id])
         ag_pos = np.where(self.agent_pos_distribution[self.agent_id] == 1)
         ag_pos = [ag_pos[0][0], ag_pos[1][0]]
         x = np.array(list(range(self.grid_size-ag_pos[0]-1,2*self.grid_size-ag_pos[0]-1, 1))) # sagt an der stelle wohin er kopiert wird.
@@ -117,10 +131,12 @@ class Discrete_CatMouse_State_Distribution:
         state_mice = mice_state_centralized[start:end, start:end].flatten()
         #print(state_agents.shape)
         #print(state_mice.shape)
+        #print(np.append(state_agents, state_mice))
         return np.append(state_agents, state_mice)
 
     @staticmethod
     def update_estimation_communication(distributions):
+        #print("Communication")
         grid_size = distributions[0].grid_size
         n_agents = distributions[0].n_agents
         n_mice = distributions[0].n_mice
@@ -146,6 +162,7 @@ class Discrete_CatMouse_State_Distribution:
                 
         for i in range(n_agents):
             final_distr.agent_pos_distribution[i] = final_distr.agent_pos_distribution[i]/np.sum(final_distr.agent_pos_distribution[i])
-            final_distr.mice_pos_distribution[i] = final_distr.mice_pos_distribution[i]/np.sum(final_distr.mice_pos_distribution[i])
+            if np.sum(final_distr.mice_pos_distribution[i]) > 0:
+                final_distr.mice_pos_distribution[i] = final_distr.mice_pos_distribution[i]/np.sum(final_distr.mice_pos_distribution[i])
 
         return final_distr

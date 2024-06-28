@@ -467,14 +467,14 @@ def run_experiment(n_games, exp_dir, exp_name, n_agents, n_prey, grid_size, obs_
 
 
 def run_experiments(exp_dir, n_games = 40000, n_runs = 3, single_proc = False):
-	exp_names_list = [f"num_agent_exp_{i}" for i in range(2, 5)] + [f"comm_rad_exp_{i}" for i in [-1, 1, 2]] + [f"env_comp_exp_{i}" for i in range(3)]
-	n_agents_list = [2, 3, 4] + [2, 2, 2] + [2, 2, 2]
-	n_prey_list = [6, 6, 6] + [8, 8, 8] + [6, 10, 14]
-	grid_sizes_list = [4, 4, 4] + [5, 5, 5] + [4, 6, 8]
-	obs_radius_list = [1, 1, 1] + [1, 1, 1] + [1, 1, 1]
+	exp_names_list = [f"num_agent_exp_{i}" for i in range(2, 5)] #+ [f"env_comp_exp_{i}" for i in range(3)]
+	n_agents_list = [2, 3, 4] #+ [2, 2, 2]
+	n_prey_list = [6, 6, 6] #+ [6, 10, 14]
+	grid_sizes_list = [4, 4, 4] #+ [4, 6, 8]
+	obs_radius_list = [1, 1, 1]  #+ [1, 1, 1]
 	if single_proc:
 		for j in range(n_runs):
-			for i in range(6,len(exp_names_list)):
+			for i in range(len(exp_names_list)):
 				exp_name = exp_names_list[i]+f"_run_{j}"
 				print(exp_name)
 				run_experiment(
