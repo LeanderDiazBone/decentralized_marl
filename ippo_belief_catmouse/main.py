@@ -321,7 +321,7 @@ if __name__ == '__main__':
 	exp_out_dir = "exp_outputs/"
 	init_dir(model_dir)
 	init_dir(exp_out_dir)
-	n_games = 1000
+	n_games = 30000
 	n_runs = 1
 	single_proc = False
-	run_experiments(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=False)
+	run_experiments(exp_out_dir, n_games=n_games, n_runs=n_runs, single_proc=True)
