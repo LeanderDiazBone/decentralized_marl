@@ -1,12 +1,13 @@
 This repository contains the implementations of the algorithms, environments and benchmarks used for the project "MARL with Local Observation & Communication" the Foundations of Reinforcement Learning FS24 lecture.
 
 For the project we implemented the following algorithms. The implementation can be found in the algorithms folder.
-* PPO
-* IPPO
-* MAPPO
-* IPPO with Belief
-* MAPPG
-* QMIX
+
+- PPO
+- IPPO
+- MAPPO
+- IPPO with Belief
+- MADDPG (in unused folder)
+- QMIX (in unused folder)
 
 We used the Lumberjacks environment and the implemented the Cat & Mouse environment ourself. The implementation and the wrappers of the environments used for training can be found in the environments folder.
 
