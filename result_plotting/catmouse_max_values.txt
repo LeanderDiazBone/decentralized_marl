@@ -1,0 +1,53 @@
+PPO num_agent_exp_2
+110.316
+MAPPO num_agent_exp_2
+139.912
+IPPO num_agent_exp_2
+126.372
+IPPO Belief num_agent_exp_2
+130.032
+
+PPO num_agent_exp_3
+158.31
+MAPPO num_agent_exp_3
+246.654
+IPPO num_agent_exp_3
+206.154
+IPPO Belief num_agent_exp_3
+219.972
+
+PPO num_agent_exp_4
+208.68
+MAPPO num_agent_exp_4
+372.832
+IPPO num_agent_exp_4
+287.792
+IPPO Belief num_agent_exp_4
+302.424
+
+PPO env_comp_exp_0
+99.112
+MAPPO env_comp_exp_0
+134.424
+IPPO env_comp_exp_0
+124.8
+IPPO Belief env_comp_exp_0
+126.676
+
+PPO env_comp_exp_1
+143.9
+MAPPO env_comp_exp_1
+188.568
+IPPO env_comp_exp_1
+180.764
+IPPO Belief env_comp_exp_1
+196.912
+
+PPO env_comp_exp_2
+138.316
+MAPPO env_comp_exp_2
+210.596
+IPPO env_comp_exp_2
+227.416
+IPPO Belief env_comp_exp_2
+218.068
